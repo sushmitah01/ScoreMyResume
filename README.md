@@ -1,2 +1,1 @@
-# Distributed-Twitter-Sentiment
-A project for CSE449(Distributed Parallel Systems) 
+AI-powered ATS resume scorer — built for job seekers who want to get hired faster.
