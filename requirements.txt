@@ -32,6 +32,10 @@ streamlit>=1.32
 requests>=2.31
 supabase>=2.4             
 
+# tdd
+pytest>=8.0
+pytest-asyncio>=0.23
+pytest-cov>=5.0
 
 # to download the spacy model 
 # python -m spacy download en_core_web_md
