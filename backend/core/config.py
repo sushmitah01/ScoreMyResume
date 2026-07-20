@@ -12,7 +12,7 @@ APP_DESCRIPTION ="AI- powered ATS resume scorer using NLP, LLM,ML"
 
 ALLOWED_ORIGINS=[
     "http://localhost:8501",
-    "http://scoremyresume.streamlit.app"
+    "https://scoremyresume.streamlit.app"
 ]
 
 #upload file rules
