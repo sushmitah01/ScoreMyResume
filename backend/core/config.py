@@ -46,3 +46,14 @@ SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
 
 #LLM
 GROQ_API_KEY = os.getenv("GROQ_API_KEY","")
+
+#authentication
+
+SECRET_KEY=os.getenv(
+    "SECRET_KEY",
+    "Production"
+)
+
+ALGORITHM = "HS256"
+
+ACSESS_TOKEN_EXPIRE_MINUTUES = 60

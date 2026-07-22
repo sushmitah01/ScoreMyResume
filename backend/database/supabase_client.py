@@ -6,7 +6,7 @@ from backend.core.config import(
 
 )
 
-if not SUPABASE_URL or SUPABASE_KEY:
+if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError(
         "SUPABASE_URL and SUPABASE_KEY must be set in the .env file."
     )
