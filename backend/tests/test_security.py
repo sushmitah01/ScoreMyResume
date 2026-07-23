@@ -19,3 +19,18 @@ def test_hash_is_different_each_time():
     hash2 = hash_password("mypassword123")
     assert hash1 != hash2   
 
+
+def test_verify_correct_password():
+    """Correct password must return True"""
+    hashed = hash_password("mypassword123")
+    assert verify_password("mypassword123", hashed) == True
+
+
+def test_create_and_verify_token():
+    """Token we create must be verifiable"""
+    token = create_access_token({"user_id": "123", "email": "test@test.com"})
+    payload = verify_token(token)
+    assert payload["user_id"] == "123"
+    assert payload["email"] == "test@test.com"
+
+
