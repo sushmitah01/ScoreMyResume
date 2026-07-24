@@ -33,4 +33,16 @@ def test_create_and_verify_token():
     assert payload["user_id"] == "123"
     assert payload["email"] == "test@test.com"
 
+def test_create_and_verify_token():
+    """Token we create must be verifiable"""
+    token = create_access_token({"user_id": "123", "email": "test@test.com"})
+    payload = verify_token(token)
+    assert payload["user_id"] == "123"
+    assert payload["email"] == "test@test.com"
+
+def test_invalid_token_raises_error():
+    """Fake token must raise an error"""
+    with pytest.raises(Exception):
+        verify_token("fake.token.here")
+
 
