@@ -1,15 +1,17 @@
 # authentication and security handling
-from passlib import 
-from bcrypt import _bcrypt
-from jwt import PyJWT
-from datetime import datetime
+from passlib.context import CryptContext
+import jwt 
+from datetime import datetime, timedelta
 
 
 
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
 
-
-hash_password():
-
+def hash_password(password: str)-> str:
+    return pwd_context.hash(password)
 
 
 verify_password():
