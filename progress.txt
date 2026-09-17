@@ -1,0 +1,232 @@
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+
+_ENV_PATH = Path (__file__).resolve().parents[2] / '.env'
+load_dotenv(_ENV_PATH)
+
+APP_TITLE= "ScoreMyResume API"
+APP_VERSION="1.0.0"
+APP_DESCRIPTION ="AI- powered ATS resume scorer using NLP, LLM,ML"
+
+ALLOWED_ORIGINS=[
+    "http://localhost:8501",
+    "https://scoremyresume.streamlit.app"
+]
+
+#upload file rules
+MAX_FILE_SIZE_MB=5
+MAX_FILE_SIZE_BYTES= MAX_FILE_SIZE_MB *1024 * 1024
+
+SUPPORTED_MIME_TYPES= {
+    "application/pdf": "pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx" ,}
+SUPPORTED_EXTENTONS = {".pdf",".docx"}
+
+SPACY_MODEL = "en_core_web_md"
+SENTENCE_TRNFORMER_MODEL = os.getenv(
+    "SENTENCE_TRANSFORMER_MODEL",
+    "all-MiniLM-L6-v2"
+)
+
+SCORE_WEIGHTS={
+    "keywords": 25,
+    "semantic": 25,
+    "skills": 20,
+    "formatting": 15,
+    "experience": 15,
+}
+
+#DB
+SUPABASE_URL=os.getenv("SUPABASE_URL","")
+SUPABASE_KEY=os.getenv("SUPABASE_KEY", "")
+SUPABASE_ANON_KEY=os.getenv("SUPABASE_ANON_KEY", "")
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
+
+#LLM
+GROQ_API_KEY = os.getenv("GROQ_API_KEY","")
+
+#authentication
+
+SECRET_KEY=os.getenv(
+    "SECRET_KEY",
+    "Production"
+)
+
+ALGORITHM = "HS256"
+
+ACSESS_TOKEN_EXPIRE_MINUTUES = 60# authentication and security handling
+from passlib.context import CryptContext
+import jwt 
+from datetime import datetime, timedelta, timezone
+from backend.core.config import SUPABASE_JWT_SECRET
+
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
+
+def hash_password(password: str)-> str:
+    return pwd_context.hash(password)
+
+def verify_password(plain: str, hashed:str)-> str:
+    return pwd_context.verify(plain,hashed)
+
+SECRET_KEY= SUPABASE_JWT_SECRET or "dev-secret-key"
+ALGORITHM = "HS256"
+EXPIRE_MIN= 60*24
+
+def create_access_token(data: dict)->str:
+    payload= data.copy()
+    expire = datetime.now(timezone.utc) +timedelta(minutes=EXPIRE_MIN)
+    payload.update({"exp": expire})
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def verify_token(token: str)-> dict:
+    try:
+        return jwt.decode(token,SECRET_KEY, algorithms=[ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise ValueError("Token has expired")
+    except jwt.InvalidTokenError:
+        raise ValueError("Invalid token")
+
+def get_current_user():
+    pass
+
+def test_verify_wrong_password_returns_false():
+    hashed= hash_password("mypassword123")
+    result = verify_password("wrongpassword", hashed)
+
+    assert result == False
+
+from fastapi import APIRouter, HTTPException
+from backend.models.schemas import UserRegister, UserLogin 
+from backend.core.security import create_access_token
+from backend.database.supabase_client import supabase
+
+
+router =APIRouter(prefix="/auth",tags=["auth"])
+
+@router.post("/signup", status_code =201)
+def signup(user: UserRegister):
+    """ Register a new user"""
+    try: 
+        response = supabase.auth.sign_up({
+            "email": user.email,
+            "password": user.password
+        })
+
+        if not response.user:
+            raise HTTPException(status_code=400, detail= "Signup Failed")
+
+        token = create_access_token({
+            "user_id": response.user.id,
+            "email": response.user.email
+        })
+
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "user_id": response.user.id,
+            "email" :response.user.email
+       }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+@router.post("/login")
+
+def login(credentials: UserLogin):
+    """ Login with email and password"""
+
+    try:
+        response= supabase.auth.sign_in_with_password({
+            "email": credentials.email,
+            "password": credentials.password,
+        })
+
+        if not response.user:
+            raise HTTPException(
+                status_code= 401,
+                detail= "Invalid email or password"
+            )
+        token = create_access_token({
+            "user_id": response.user.id,
+            "email": response.user.email
+        })
+
+        return{
+            "access_token": token,
+            "token_type": "bearer",
+            "user_id": response.user.id,
+            "email": response.user.email
+        }
+    except HTTPException:
+        raise 
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=str(e))from pydantic import BaseModel, Field
+from typing import Optional
+from datetime import datetime
+
+
+class UserRegister(BaseModel):
+    email:str
+    password: str
+    full_name: str
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+class TokenResponse(BaseModel):
+    access_token:str
+    token_type: str = "bearer"
+    user_id: str
+    email: str
+
+class ScoreRequest(BaseModel):
+    job_description: str = Field(
+        ...,
+        min_length=50,
+        description= "The job description to match resume against"
+    )
+
+class ScoreBreakdown(BaseModel):
+    keywords: float
+    semantic: float
+    skills: float
+    formatting: float
+    experience: float
+
+class ScoreResponse(BaseModel):
+    overall_score: float
+    breakdown: ScoreBreakdown
+    matched_keywords: list[str]
+    missing_keywords: list[str]
+    matched_skills: list[str]
+    ai_feedback: str
+    suggestions: list[str]
+    processing_time_ms: int
+
+class HistoryRecord(BaseModel):
+    id: str
+    user_id: str
+    resume_name: str
+    job_tittle: Optional[str]
+    overall_score: float
+    breakdown: ScoreBreakdown
+    ai_feedback: str
+    created_at: datetime
+
+class FeedbackRequest(BaseModel):
+    score_id: str
+    rating: int=Field(..., ge=1, le=5)
+    comment: Optional[str]
+
+class FeedbackResponse(BaseModel):
+    message: str
+    feedback_id: str
+
+

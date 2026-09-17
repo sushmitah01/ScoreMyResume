@@ -8,12 +8,12 @@ class UserRegister(BaseModel):
     password: str
     full_name: str
 
-class Userlogin(BaseModel):
+class UserLogin(BaseModel):
     email: str
     password: str
 
-class TokenResponses(BaseModel):
-    acess_token:str
+class TokenResponse(BaseModel):
+    access_token:str
     token_type: str = "bearer"
     user_id: str
     email: str
@@ -37,7 +37,6 @@ class ScoreResponse(BaseModel):
     breakdown: ScoreBreakdown
     matched_keywords: list[str]
     missing_keywords: list[str]
-    matched_skills: list[str]
     matched_skills: list[str]
     ai_feedback: str
     suggestions: list[str]

@@ -16,10 +16,10 @@ def test_extract_keywords_returns_lemmaized_nouns():
 
     keywords = extract_keywords(text)
 
-    assert "database" in keyword
+    assert "database" in keywords
 
 def test_extract_keywords_empty_string_returns_empty_list():
-    assert extract_keywords("")=[]
+    assert extract_keywords("")==[]
 
 SKILLS_DB=  ["Python", "Docker", "Kubernetes", "AWS", "REST API"] 
 
