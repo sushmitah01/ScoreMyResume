@@ -21,7 +21,7 @@ def test_extract_keywords_returns_lemmaized_nouns():
 def test_extract_keywords_empty_string_returns_empty_list():
     assert extract_keywords("")==[]
 
-SKILLS_DB=  ["Python", "Docker", "Kubernetes", "AWS", "REST API"] 
+SKILLS_DB=  ["Python", "Docker", "Kubernetes", "AWS", "REST API", "Java"] 
 
 def test_extract_skills_finds_exact_match():
     text= "I have 3 years of experience with Python and Docker."
@@ -61,3 +61,23 @@ def test_keyword_match_score_partial_overlap():
 
 def test_keyword_match_score_empty_jd_keywords_returns_zero():
     assert keyword_match_score(["python"], []) == 0.0
+
+def test_extract_skills_ignores_partial_word_matches():
+    text = "I built an awesome app using JavaScript and TypeScript."
+
+    found = extract_skills(text, SKILLS_DB)
+
+    assert "AWS" not in found
+    assert "Java" not in found
+
+
+def test_extract_keywords_filters_generic_filler_nouns():
+    text = "Experience with Python is a plus. Strong communication skills and ability required."
+
+    keywords = extract_keywords(text)
+
+    assert "experience" not in keywords
+    assert "plus" not in keywords
+    assert "skill" not in keywords
+    assert "ability" not in keywords
+    assert "python" in keywords

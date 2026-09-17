@@ -4,9 +4,12 @@ from backend.core.config import SPACY_MODEL
 
 nlp = spacy.load(SPACY_MODEL)
 
-
+GENERIC_FILLER_WORDS = {
+    "experience", "skill", "ability", "plus", "environment",
+    "requirement", "responsibility", "candidate", "role", "team",
+}
 def extract_keywords(text):
-    if text==" ":
+    if text=="":
         return []
 
 
@@ -16,8 +19,11 @@ def extract_keywords(text):
     for token in doc:
         if token.is_stop or token.is_punct or token.is_space:
             continue
-        if token.pos_ in ("NOUN", "PRONOUN"):
-            keywords.append (token.lemma_.lower())
+        if token.pos_ in ("NOUN", "PROPN"):
+            lemma= token.lemma_.lower()
+            if lemma in GENERIC_FILLER_WORDS:
+                continue
+            keywords.append(lemma)
 
     return keywords
 
