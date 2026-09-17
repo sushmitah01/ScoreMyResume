@@ -1,8 +1,12 @@
 import spacy
 from spacy.matcher import PhraseMatcher
 from backend.core.config import SPACY_MODEL
+from sentence_transformers import SentenceTransformer
+from sentence_transformers.util import cos_sim
+from backend.core.config import SENTENCE_TRANSFORMER_MODEL
 
 nlp = spacy.load(SPACY_MODEL)
+sentence_model = SentenceTransformer(SENTENCE_TRANSFORMER_MODEL)
 
 GENERIC_FILLER_WORDS = {
     "experience", "skill", "ability", "plus", "environment",
@@ -58,3 +62,12 @@ def keyword_match_score(resume_keywords, jd_keywords):
     score= (len(matched)/ len(jd_set))* 100
 
     return round(score,1)
+
+def semantic_similarity_score(text1, text2):
+    embedding1 = sentence_model.encode(text1)
+    embedding2 = sentence_model.encode(text2)
+
+    similarity = cos_sim(embedding1, embedding2)
+    score = similarity.item() * 100
+
+    return round(score, 1)
