@@ -1,8 +1,10 @@
 import pytest
+from unittest.mock import patch, MagicMock
 from backend.services.scorer import( extract_keywords,
                                      extract_skills,
                                     keyword_match_score,
-                                    semantic_similarity_score,)
+                                    semantic_similarity_score,
+                                    generate_ai_feedback)
 
 
 
@@ -107,3 +109,59 @@ def test_semantic_similarity_unrelated_text_scores_low():
 def test_semantic_similarity_returns_float_between_0_and_100():
     score = semantic_similarity_score("Python developer", "Software engineer")
     assert 0.0 <= score <= 100.0
+    
+def test_semantic_similarity_paraphrase_scores_higher_than_unrelated():
+    paraphrase_score = semantic_similarity_score(
+        "Built scalable web services using distributed systems.",
+        "Looking for someone who can develop distributed backend systems at scale."
+    )
+    unrelated_score = semantic_similarity_score(
+        "Passionate home baker who loves making sourdough bread.",
+        "Senior DevOps engineer needed for Kubernetes infrastructure management."
+    )
+    assert paraphrase_score > unrelated_score
+
+def test_generate_ai_feedback_returns_a_string():
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content= "Solid resume. Consider highlighting Kubernetes experience."
+    with patch("backend.services.scorer.client.chat.completions.create",return_value= mock_response):
+        feedback= generate_ai_feedback(
+            matched_keywords=["python", "docker"],
+            missing_keywords=["kubernetes"],
+            matched_skills=["Python", "Docker"],
+            missing_skills=["kubernetes"],
+            semantic_score= 72.5,
+        )
+
+    assert isinstance(feedback,str)
+    assert len(feedback) >0
+
+def test_generate_ai_feedback_missing_skill_in_prompt():
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = "Some feedback text."
+
+    with patch("backend.services.scorer.client.chat.completions.create", return_value=mock_response) as mock_create:
+        generate_ai_feedback(
+            matched_keywords=["python"],
+            missing_keywords=[],
+            matched_skills=["Python"],
+            missing_skills=["Kubernetes"],
+            semantic_score=80.0,
+        )
+
+    call_args = mock_create.call_args
+    prompt_text = str(call_args)
+    assert "Kubernetes" in prompt_text   
+
+def test_generate_ai_feedback_returns_fallback_on_api_error():
+    with patch("backend.services.scorer.client.chat.completions.create", side_effect=Exception("API down")):
+        feedback = generate_ai_feedback(
+            matched_keywords=["python"],
+            missing_keywords=["docker"],
+            matched_skills=["Python"],
+            missing_skills=["Docker"],
+            semantic_score=60.0,
+        )
+
+    assert isinstance(feedback, str)
+    assert len(feedback) > 0

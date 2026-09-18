@@ -29,7 +29,7 @@ SENTENCE_TRANSFORMER_MODEL = os.getenv(
     "SENTENCE_TRANSFORMER_MODEL",
     "all-MiniLM-L6-v2"
 )
-
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-20b")
 SCORE_WEIGHTS={
     "keywords": 25,
     "semantic": 25,

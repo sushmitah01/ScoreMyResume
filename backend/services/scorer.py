@@ -4,9 +4,12 @@ from backend.core.config import SPACY_MODEL
 from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import cos_sim
 from backend.core.config import SENTENCE_TRANSFORMER_MODEL
+from groq import Groq
+from backend.core.config import GROQ_API_KEY, GROQ_MODEL
 
 nlp = spacy.load(SPACY_MODEL)
 sentence_model = SentenceTransformer(SENTENCE_TRANSFORMER_MODEL)
+client = Groq(api_key=GROQ_API_KEY)
 
 GENERIC_FILLER_WORDS = {
     "experience", "skill", "ability", "plus", "environment",
@@ -71,3 +74,23 @@ def semantic_similarity_score(text1, text2):
     score = similarity.item() * 100
 
     return round(score, 1)
+
+
+def generate_ai_feedback(matched_keywords, missing_keywords, matched_skills, missing_skills, semantic_score):
+    prompt= f"""You are a resume coach. Based on this  ATS scoring data,write 2-3 sentences of constructive feedback for the candidate. 
+Matched keywords: {', '.join(matched_keywords) if matched_keywords else 'none'}
+Missing keywords: {', '.join(missing_keywords) if missing_keywords else 'none'}
+Matched skills: {', '.join(matched_skills) if matched_skills else 'none'}
+Missing skills: {', '.join(missing_skills) if missing_skills else 'none'}
+Semantic similarity score: {semantic_score}/100
+
+Keep it encouraging but specific about what to improve."""
+    try:
+        response= client.chat.completions.create(
+            model= GROQ_MODEL,
+        messages=[{"role":"user", "content":prompt}],
+
+        )
+        return response.choices[0].message.content
+    except Exception:
+        return "We couldn't generate personalized AI feedback right now, but your score breakdown above still reflects your resume's match this job description."
