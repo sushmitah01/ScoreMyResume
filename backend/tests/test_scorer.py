@@ -4,7 +4,9 @@ from backend.services.scorer import( extract_keywords,
                                      extract_skills,
                                     keyword_match_score,
                                     semantic_similarity_score,
-                                    generate_ai_feedback)
+                                    generate_ai_feedback,
+                                    formatting_score,
+                                    has_phone_number)
 
 
 
@@ -109,7 +111,7 @@ def test_semantic_similarity_unrelated_text_scores_low():
 def test_semantic_similarity_returns_float_between_0_and_100():
     score = semantic_similarity_score("Python developer", "Software engineer")
     assert 0.0 <= score <= 100.0
-    
+
 def test_semantic_similarity_paraphrase_scores_higher_than_unrelated():
     paraphrase_score = semantic_similarity_score(
         "Built scalable web services using distributed systems.",
@@ -165,3 +167,51 @@ def test_generate_ai_feedback_returns_fallback_on_api_error():
 
     assert isinstance(feedback, str)
     assert len(feedback) > 0
+
+def test_formatting_score_full_marks_for_complete_resume():
+    text=""" Nusrat Nodi
+    nusrat.nodi@gmail.com | (555) 123-4567
+    EXPERIENCE
+    - Built scalable backend system
+    - Led a team of 5 engineers
+
+    EADUCATION
+    -BS Computer Science
+
+    SKILLS
+    - Python, Docker, Kubernetes
+    """
+    score= formatting_score(text)
+    assert score==100.0
+
+def test_formatting_score_missing_email_loses_points():
+    text="""
+    Nowshin Nodi | (555) 123-4567
+    EXPERIENCE
+    - Built scalable backend system   
+
+    EADUCATION
+    -BS Computer Science 
+    """
+
+    score= formatting_score(text)
+    assert score< 100.0
+
+def test_formatting_score_no_structure_scores_low():
+    text = "I am a hardworking person who wants a job and has done many things."
+    score = formatting_score(text)
+    assert score < 50.0  
+
+def test_formatting_score_empty_text_returns_zero():
+    assert formatting_score("") == 0.0  
+
+def test_formatting_score_recognizes_international_phone_formats():
+    us_text = "Contact: (555) 123-4567"
+    uk_text = "Contact: +44 20 7946 0958"
+    bd_text = "Contact: +880 1712-345678"
+    india_text = "Contact: +91 98765 43210"
+    australia_text = "Contact: +61 4 1234 5678"
+
+    for text in [us_text, uk_text, bd_text, india_text, australia_text]:
+        assert has_phone_number(text) is True
+

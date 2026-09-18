@@ -1,4 +1,5 @@
 import spacy
+import re
 from spacy.matcher import PhraseMatcher
 from backend.core.config import SPACY_MODEL
 from sentence_transformers import SentenceTransformer
@@ -94,3 +95,39 @@ Keep it encouraging but specific about what to improve."""
         return response.choices[0].message.content
     except Exception:
         return "We couldn't generate personalized AI feedback right now, but your score breakdown above still reflects your resume's match this job description."
+
+
+SECTION_HEADERS = ["experience", "education", "skills", "projects", "summary"]
+def has_phone_number(text):
+    candidates = re.findall(r"\+?[\d][\d\-.\s()]{6,}\d", text)
+
+    for candidate in candidates:
+        digits_only = re.sub(r"\D", "", candidate)
+        if 7 <= len(digits_only) <= 15:
+            return True
+
+    return False
+
+def formatting_score(text):
+    if text.strip()=="":
+        return 0.0
+
+    score=0.0
+    lower_text= text.lower()
+
+    has_email= bool(re.search(r"[\w.+-]+@[\w-]+\.[\w.-]+",text))
+    if has_email:
+        score +=25
+
+    if has_phone_number(text):
+        score+=25
+    
+    headers_found= [h for h in SECTION_HEADERS if h in lower_text]  
+    if len(headers_found) >= 2:
+        score += 25
+
+    has_bullets = bool(re.search(r"^\s*[-•]", text, re.MULTILINE))
+    if has_bullets:
+        score += 25
+
+    return round(score, 1)
