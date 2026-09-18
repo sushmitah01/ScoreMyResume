@@ -6,7 +6,9 @@ from backend.services.scorer import( extract_keywords,
                                     semantic_similarity_score,
                                     generate_ai_feedback,
                                     formatting_score,
-                                    has_phone_number)
+                                    has_phone_number,
+                                    experience_score,
+                                    extract_years_of_experience)
 
 
 
@@ -122,7 +124,7 @@ def test_semantic_similarity_paraphrase_scores_higher_than_unrelated():
         "Senior DevOps engineer needed for Kubernetes infrastructure management."
     )
     assert paraphrase_score > unrelated_score
-
+#ai feedback using groq mock test
 def test_generate_ai_feedback_returns_a_string():
     mock_response = MagicMock()
     mock_response.choices[0].message.content= "Solid resume. Consider highlighting Kubernetes experience."
@@ -167,7 +169,7 @@ def test_generate_ai_feedback_returns_fallback_on_api_error():
 
     assert isinstance(feedback, str)
     assert len(feedback) > 0
-
+#formatting
 def test_formatting_score_full_marks_for_complete_resume():
     text=""" Nusrat Nodi
     nusrat.nodi@gmail.com | (555) 123-4567
@@ -215,3 +217,34 @@ def test_formatting_score_recognizes_international_phone_formats():
     for text in [us_text, uk_text, bd_text, india_text, australia_text]:
         assert has_phone_number(text) is True
 
+#expeience
+def test_extract_years_of_experience_finds_simple_number():
+    text = "I have 5 years of experience in backend development."
+    assert extract_years_of_experience(text) == 5
+
+
+def test_extract_years_of_experience_finds_plus_notation():
+    text = "Looking for someone with 7+ years of experience."
+    assert extract_years_of_experience(text) == 7
+
+
+def test_extract_years_of_experience_takes_maximum_when_multiple_mentions():
+    text = "3 years at Company A, followed by 6 years at Company B."
+    assert extract_years_of_experience(text) == 6
+
+
+def test_extract_years_of_experience_returns_zero_when_not_mentioned():
+    text = "Skilled backend engineer with strong Python knowledge."
+    assert extract_years_of_experience(text) == 0
+
+def test_experience_score_meets_requirement_scores_full():
+    assert experience_score(resume_years=6, required_years=5) == 100.0
+
+def test_experience_score_exact_match_scores_full():
+    assert experience_score(resume_years=5, required_years=5) == 100.0
+
+def test_experience_score_under_requirement_scores_proportionally():
+    assert experience_score(resume_years=3, required_years=5) == 60.0
+
+def test_experience_score_zero_required_years_scores_full():
+    assert experience_score(resume_years=2, required_years=0) == 100.0

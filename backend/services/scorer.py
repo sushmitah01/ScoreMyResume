@@ -131,3 +131,23 @@ def formatting_score(text):
         score += 25
 
     return round(score, 1)
+
+
+def extract_years_of_experience(text):
+    matches = re.findall(r"(\d+)\+?\s*years?", text, re.IGNORECASE)
+
+    if not matches:
+        return 0
+
+    years= [int(m) for m in matches]
+    return max(years)
+
+def experience_score(resume_years, required_years):
+    if required_years == 0:
+        return 100.0
+
+    if resume_years >= required_years:
+        return 100.0
+
+    score = (resume_years / required_years) * 100
+    return round(score, 1)
