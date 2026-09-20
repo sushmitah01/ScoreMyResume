@@ -8,7 +8,8 @@ from backend.services.scorer import( extract_keywords,
                                     formatting_score,
                                     has_phone_number,
                                     experience_score,
-                                    extract_years_of_experience)
+                                    extract_years_of_experience,
+                                    score_resume)
 
 
 
@@ -248,3 +249,59 @@ def test_experience_score_under_requirement_scores_proportionally():
 
 def test_experience_score_zero_required_years_scores_full():
     assert experience_score(resume_years=2, required_years=0) == 100.0
+
+
+def test_score_resume_returns_all_expected_keys():
+    resume_text = """
+    Nusrat Nodi
+    nusrat.nodi@gmail.com | (555) 123-4567
+
+    EXPERIENCE
+    - 5 years of experience building Python backend systems with Docker
+
+    SKILLS
+    - Python, Docker, AWS
+    """
+    jd_text = "Looking for a backend engineer with Python and Docker experience. 3+ years required."
+    skills_db = ["Python", "Docker", "Kubernetes", "AWS"]
+
+    result = score_resume(resume_text, jd_text, skills_db, required_years=3)
+
+    expected_keys = {
+        "overall_score", "breakdown", "matched_keywords", "missing_keywords",
+        "matched_skills", "missing_skills", "ai_feedback",
+    }
+    assert expected_keys.issubset(result.keys())
+
+
+def test_score_resume_overall_score_is_weighted_average():
+    resume_text = "Python Docker AWS experience"
+    jd_text = "Python Docker AWS experience"
+    skills_db = ["Python", "Docker", "AWS"]
+
+    result = score_resume(resume_text, jd_text, skills_db, required_years=0)
+
+    assert 0.0 <= result["overall_score"] <= 100.0
+
+
+def test_score_resume_breakdown_matches_score_weights_keys():
+    resume_text = "Python developer"
+    jd_text = "Python developer needed"
+    skills_db = ["Python"]
+
+    result = score_resume(resume_text, jd_text, skills_db, required_years=0)
+
+    assert set(result["breakdown"].keys()) == {
+        "keywords", "semantic", "skills", "formatting", "experience"
+    }
+
+
+def test_score_resume_missing_skills_reflects_jd_gap():
+    resume_text = "I know Python well."
+    jd_text = "Must have Python and Kubernetes experience."
+    skills_db = ["Python", "Kubernetes"]
+
+    result = score_resume(resume_text, jd_text, skills_db, required_years=0)
+
+    assert "Kubernetes" in result["missing_skills"]
+    assert "Python" not in result["missing_skills"]

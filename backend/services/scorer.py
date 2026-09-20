@@ -6,7 +6,13 @@ from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import cos_sim
 from backend.core.config import SENTENCE_TRANSFORMER_MODEL
 from groq import Groq
-from backend.core.config import GROQ_API_KEY, GROQ_MODEL
+from backend.core.config import GROQ_API_KEY, GROQ_MODEL, SCORE_WEIGHTS
+
+def calculate_overall_score(breakdown):
+    total = 0.0
+    for component, weight in SCORE_WEIGHTS.items():
+        total += breakdown[component] * (weight / 100)
+    return round(total, 1)
 
 nlp = spacy.load(SPACY_MODEL)
 sentence_model = SentenceTransformer(SENTENCE_TRANSFORMER_MODEL)
@@ -151,3 +157,58 @@ def experience_score(resume_years, required_years):
 
     score = (resume_years / required_years) * 100
     return round(score, 1)
+
+def score_resume(resume_text, jd_text, skills_db, required_years):
+    resume_keywords = extract_keywords(resume_text)
+    jd_keywords = extract_keywords(jd_text)
+
+    resume_skills = extract_skills(resume_text, skills_db)
+    jd_skills = extract_skills(jd_text, skills_db)
+
+    matched_keywords = list(set(resume_keywords) & set(jd_keywords))
+    missing_keywords = list(set(jd_keywords) - set(resume_keywords))
+
+    matched_skills = list(set(resume_skills) & set(jd_skills))
+    missing_skills = list(set(jd_skills) - set(resume_skills))
+
+    keywords_score = keyword_match_score(resume_keywords, jd_keywords)
+    semantic_score = semantic_similarity_score(resume_text, jd_text)
+
+    if jd_skills:
+        skills_score = (len(matched_skills) / len(jd_skills)) * 100
+    else:
+        skills_score = 0.0
+    skills_score = round(skills_score, 1)
+
+    format_score = formatting_score(resume_text)
+
+    resume_years = extract_years_of_experience(resume_text)
+    exp_score = experience_score(resume_years, required_years)
+
+    breakdown = {
+        "keywords": keywords_score,
+        "semantic": semantic_score,
+        "skills": skills_score,
+        "formatting": format_score,
+        "experience": exp_score,
+    }
+
+    overall = calculate_overall_score(breakdown)
+
+    ai_feedback = generate_ai_feedback(
+        matched_keywords=matched_keywords,
+        missing_keywords=missing_keywords,
+        matched_skills=matched_skills,
+        missing_skills=missing_skills,
+        semantic_score=semantic_score,
+    )
+
+    return {
+        "overall_score": overall,
+        "breakdown": breakdown,
+        "matched_keywords": matched_keywords,
+        "missing_keywords": missing_keywords,
+        "matched_skills": matched_skills,
+        "missing_skills": missing_skills,
+        "ai_feedback": ai_feedback,
+    }
