@@ -46,3 +46,8 @@ def test_invalid_token_raises_error():
         verify_token("fake.token.here")
 
 
+def test_verify_wrong_password_returns_false():
+    hashed= hash_password("mypassword123")
+    result = verify_password("wrongpassword", hashed)
+
+    assert result == False

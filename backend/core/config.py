@@ -22,7 +22,7 @@ MAX_FILE_SIZE_BYTES= MAX_FILE_SIZE_MB *1024 * 1024
 SUPPORTED_MIME_TYPES= {
     "application/pdf": "pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx" ,}
-SUPPORTED_EXTENTONS = {".pdf",".docx"}
+SUPPORTED_EXTENSIONS = {".pdf",".docx"}
 
 SPACY_MODEL = "en_core_web_md"
 SENTENCE_TRANSFORMER_MODEL = os.getenv(
@@ -47,13 +47,3 @@ SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
 #LLM
 GROQ_API_KEY = os.getenv("GROQ_API_KEY","")
 
-#authentication
-
-SECRET_KEY=os.getenv(
-    "SECRET_KEY",
-    "Production"
-)
-
-ALGORITHM = "HS256"
-
-ACCSESS_TOKEN_EXPIRE_MINUTES = 60

@@ -19,8 +19,31 @@ sentence_model = SentenceTransformer(SENTENCE_TRANSFORMER_MODEL)
 client = Groq(api_key=GROQ_API_KEY)
 
 GENERIC_FILLER_WORDS = {
-    "experience", "skill", "ability", "plus", "environment",
-    "requirement", "responsibility", "candidate", "role", "team",
+    "experience","skill",
+    "skills","ability","abilities","plus","environment","requirement","requirements","responsibility","responsibilities","candidate",
+    "role","team","work","working","company","organization",
+    "organizations", "career", "job","position","employee","employer","business","industry","field","method","methods","process","processes","practice","practices","service","services","support","quality",
+    "problem","problems","need","needs","level","knowledge","understanding","expertise",
+    "development","application","applications","information","description","deliverable","deliverables","performance",
+    "technique","techniques","procedure","procedures","component","components",
+    "object","objects","query", "queries","data","code","product","products","organization","organizations",
+}
+
+JD_BOILERPLATE_WORDS = {
+    "monday","tuesday","wednesday","thursday","friday","saturday","sunday","salary","bonus",
+    "bonuses","benefit","benefits","holiday","holidays","leave","opportunity","office","week","weekly","annual",
+    "annually","yearly","compensation","review","workplace","location","site","day","recognition","wellness","outing",
+    "premises","deadline",
+}
+
+JOB_ROLE_WORDS = {
+    "engineer","engineers","developer","developers","programmer","programmers",
+    "architect","architects","manager","managers","designer","designers","analyst",
+    "analysts","intern","interns","professional","professionals",
+}
+
+EXCLUDED_ENTITY_TYPES = {
+    "PERSON","GPE","LOC","FAC","DATE","TIME","MONEY","CARDINAL","ORDINAL","PERCENT",
 }
 def extract_keywords(text):
     if text=="":
@@ -35,7 +58,7 @@ def extract_keywords(text):
             continue
         if token.pos_ in ("NOUN", "PROPN"):
             lemma= token.lemma_.lower()
-            if lemma in GENERIC_FILLER_WORDS:
+            if lemma in GENERIC_FILLER_WORDS or lemma in JD_BOILERPLATE_WORDS:
                 continue
             keywords.append(lemma)
 

@@ -92,6 +92,24 @@ def test_extract_keywords_filters_generic_filler_nouns():
     assert "ability" not in keywords
     assert "python" in keywords
 
+def test_extract_keywords_filters_jd_boilerplate():
+    text = """
+    We offer competitive salary and annual bonuses. Weekly holidays are
+    Friday and Saturday. This is a great opportunity to join our team
+    and work with PostgreSQL and MongoDB in a collaborative office environment.
+    """
+
+    keywords = extract_keywords(text)
+
+    assert "friday" not in keywords
+    assert "saturday" not in keywords
+    assert "bonus" not in keywords
+    assert "salary" not in keywords
+    assert "opportunity" not in keywords
+    assert "office" not in keywords
+    assert "postgresql" in keywords
+    assert "mongodb" in keywords
+
 def test_semantic_similarity_identical_text_score_high():
     text="An experienced backend engineer skilled in Python and cloud infrastructure"
     score= semantic_similarity_score(text,text)

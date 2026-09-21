@@ -3,6 +3,7 @@ from passlib.context import CryptContext
 import jwt 
 from datetime import datetime, timedelta, timezone
 from backend.core.config import SUPABASE_JWT_SECRET
+from fastapi import Header, HTTPException
 
 pwd_context = CryptContext(
     schemes=["bcrypt"],
@@ -33,12 +34,17 @@ def verify_token(token: str)-> dict:
     except jwt.InvalidTokenError:
         raise ValueError("Invalid token")
 
-def get_current_user():
-    pass
+def get_current_user(authorization: str = Header(None)):
+    if authorization is None or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authorization header")
 
-def test_verify_wrong_password_returns_false():
-    hashed= hash_password("mypassword123")
-    result = verify_password("wrongpassword", hashed)
+    token = authorization.replace("Bearer ", "")
 
-    assert result == False
+    try:
+        payload = verify_token(token)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    return payload   
+    
 
