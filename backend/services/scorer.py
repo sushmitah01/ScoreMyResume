@@ -46,25 +46,43 @@ EXCLUDED_ENTITY_TYPES = {
     "PERSON","GPE","LOC","FAC","DATE","TIME","MONEY","CARDINAL","ORDINAL","PERCENT",
 }
 def extract_keywords(text):
-    if text=="":
+    if not text:
         return []
 
 
     doc = nlp(text)
-    keywords=[]
+    keywords=set()
 
     for token in doc:
         if token.is_stop or token.is_punct or token.is_space:
             continue
-        if token.pos_ in ("NOUN", "PROPN"):
-            lemma= token.lemma_.lower()
-            if lemma in GENERIC_FILLER_WORDS or lemma in JD_BOILERPLATE_WORDS:
-                continue
-            keywords.append(lemma)
+        if token.ent_type_ in EXCLUDED_ENTITY_TYPES:
+            continue
+        lemma = token.lemma_.lower().strip()
+        if not lemma:
+            continue
+        if lemma in GENERIC_FILLER_WORDS:
+            continue
+        if lemma in JD_BOILERPLATE_WORDS:
+            continue
+        if lemma in JOB_ROLE_WORDS:
+            continue
+        if token.pos_ not in {"NOUN", "PROPN"}:
+            continue
+        keywords.add(lemma)
+        
 
-    return keywords
+    return sorted(keywords)
 
 def extract_skills(text, skills_db):
+
+    if not text or not skills_db:
+        return []
+    skill_lookup={
+        skill.lower(): skill
+        for skill in skills_db
+    }
+    
     matcher =PhraseMatcher(nlp.vocab, attr="LOWER")
 
     patterns = [nlp.make_doc(skill)for skill in skills_db]
@@ -76,13 +94,13 @@ def extract_skills(text, skills_db):
     found_skills= set()
 
     for match_id,start, end in matches:
-        span_text= doc[start:end].text
-        for skill in skills_db:
-            if skill.lower()== span_text.lower():
-                found_skills.add(skill)
-    return list(found_skills)
+        span_text= doc[start:end].text.strip().lower()
+        canonical_skill = skill_lookup.get(span_text)
+        if canonical_skill:
+            found_skills.add(canonical_skill)
 
-        
+    return sorted(found_skills)
+
 
 def keyword_match_score(resume_keywords, jd_keywords):
     if not jd_keywords:
@@ -188,11 +206,11 @@ def score_resume(resume_text, jd_text, skills_db, required_years):
     resume_skills = extract_skills(resume_text, skills_db)
     jd_skills = extract_skills(jd_text, skills_db)
 
-    matched_keywords = list(set(resume_keywords) & set(jd_keywords))
-    missing_keywords = list(set(jd_keywords) - set(resume_keywords))
+    matched_keywords = sorted(set(resume_keywords) & set(jd_keywords))
+    missing_keywords = sorted(set(jd_keywords) - set(resume_keywords))
 
-    matched_skills = list(set(resume_skills) & set(jd_skills))
-    missing_skills = list(set(jd_skills) - set(resume_skills))
+    matched_skills = sorted(set(resume_skills) & set(jd_skills))
+    missing_skills = sorted(set(jd_skills) - set(resume_skills))
 
     keywords_score = keyword_match_score(resume_keywords, jd_keywords)
     semantic_score = semantic_similarity_score(resume_text, jd_text)
