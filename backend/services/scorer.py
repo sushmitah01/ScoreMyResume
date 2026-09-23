@@ -41,10 +41,21 @@ JOB_ROLE_WORDS = {
     "architect","architects","manager","managers","designer","designers","analyst",
     "analysts","intern","interns","professional","professionals",
 }
+KNOWN_LOCATION_WORDS = {
+    "dhaka","panthapath","bangladesh","uttam","sarak","bd",
+}
+KNOWN_PERSON_NAMES = {
+    "nuruzzaman",
+    "qazi",
+}
 
+RESUME_METADATA_WORDS = {
+    "year","years","bsc","msc","phd","contact","address","phone","email",
+}
 EXCLUDED_ENTITY_TYPES = {
     "PERSON","GPE","LOC","FAC","DATE","TIME","MONEY","CARDINAL","ORDINAL","PERCENT",
 }
+
 def extract_keywords(text):
     if not text:
         return []
@@ -61,11 +72,17 @@ def extract_keywords(text):
         lemma = token.lemma_.lower().strip()
         if not lemma:
             continue
+        if lemma in KNOWN_LOCATION_WORDS:
+            continue
+        if lemma in KNOWN_PERSON_NAMES:
+            continue
         if lemma in GENERIC_FILLER_WORDS:
             continue
         if lemma in JD_BOILERPLATE_WORDS:
             continue
         if lemma in JOB_ROLE_WORDS:
+            continue
+        if lemma in RESUME_METADATA_WORDS:
             continue
         if token.pos_ not in {"NOUN", "PROPN"}:
             continue

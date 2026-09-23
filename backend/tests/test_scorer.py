@@ -80,6 +80,56 @@ def test_extract_skills_ignores_partial_word_matches():
     assert "AWS" not in found
     assert "Java" not in found
 
+def test_extract_keywords_ignores_locations():
+    text = """
+    We are looking for a software engineer in Dhaka,
+    Panthapath, Bangladesh.
+    """
+    keywords = extract_keywords(text)
+    assert "dhaka" not in keywords
+    assert "panthapath" not in keywords
+    assert "bangladesh" not in keywords
+
+def test_extract_keywords_ignores_person_names():
+    text = """
+    Contact Nuruzzaman Qazi for more information.
+    """
+    keywords = extract_keywords(text)
+    assert "nuruzzaman" not in keywords
+    assert "qazi" not in keywords
+
+def test_extract_keywords_ignores_job_roles():
+    text = """
+    We are looking for a software engineer
+    and backend developer.
+    """
+    keywords = extract_keywords(text)
+    assert "engineer" not in keywords
+    assert "developer" not in keywords
+def test_extract_keywords_ignores_generic_business_words():
+    text = """
+    The employee will work with the company to solve
+    business problems and improve quality.
+    """
+    keywords = extract_keywords(text)
+    assert "employee" not in keywords
+    assert "work" not in keywords
+    assert "company" not in keywords
+    assert "business" not in keywords
+    assert "problem" not in keywords
+    assert "quality" not in keywords
+
+def test_extract_keywords_keeps_useful_technical_concepts():
+    text = """
+    Experience with database architecture, debugging,
+    deployment, and microservices.
+    """
+    keywords = extract_keywords(text)
+    assert "database" in keywords
+    assert "architecture" in keywords
+    assert "debugging" in keywords
+    assert "deployment" in keywords
+    assert "microservice" in keywords
 
 def test_extract_keywords_filters_generic_filler_nouns():
     text = "Experience with Python is a plus. Strong communication skills and ability required."
@@ -92,6 +142,47 @@ def test_extract_keywords_filters_generic_filler_nouns():
     assert "ability" not in keywords
     assert "python" in keywords
 
+def test_extract_keywords_removes_real_world_resume_noise():
+    text = """
+    Power Dapper proficiency engineer sick Qazi nature passion
+    heights awards year ADO.NET quality media Nuruzzaman problem
+    field understanding additional expertise architecture employee
+    development data support BSc responsibilities services industry
+    OOP database telecommunication debugging procedure career
+    designing course festival testing communication deliverable
+    west company work code million summary web microservice yearly
+    server view pressure organization requirements ASP.NET product
+    Uttam job application async Panthapath description software
+    deadline service hand object process practice LINQ deployment issue
+    component BD Sarak Dhaka-1205 information query business.
+    """
+
+    keywords = extract_keywords(text)
+
+    forbidden = {
+        "engineer","qazi","nuruzzaman","employee","company","work","career",
+        "job","application","deadline","dhaka","panthapath","bd","year",
+        "yearly","bsc","business","information","description","responsibilities",
+    }
+
+    assert not forbidden.intersection(keywords)
+
+def test_extract_skills_finds_real_technical_terms():
+    text = """
+    Experience with ADO.NET, ASP.NET, OOP, LINQ,
+    databases, debugging and microservices.
+    """
+
+    skills_db = [
+        "ADO.NET","ASP.NET","OOP","LINQ","Database","Debugging","Microservices",
+    ]
+
+    found = extract_skills(text, skills_db)
+
+    assert "ADO.NET" in found
+    assert "ASP.NET" in found
+    assert "OOP" in found
+    assert "LINQ" in found
 def test_extract_keywords_filters_jd_boilerplate():
     text = """
     We offer competitive salary and annual bonuses. Weekly holidays are
@@ -109,6 +200,13 @@ def test_extract_keywords_filters_jd_boilerplate():
     assert "office" not in keywords
     assert "postgresql" in keywords
     assert "mongodb" in keywords
+
+def test_extract_keywords_returns_sorted_unique_keywords():
+    text = """
+    Python databases databases Docker systems systems
+    """
+    keywords = extract_keywords(text)
+    assert keywords == sorted(set(keywords))
 
 def test_semantic_similarity_identical_text_score_high():
     text="An experienced backend engineer skilled in Python and cloud infrastructure"
@@ -323,3 +421,4 @@ def test_score_resume_missing_skills_reflects_jd_gap():
 
     assert "Kubernetes" in result["missing_skills"]
     assert "Python" not in result["missing_skills"]
+
