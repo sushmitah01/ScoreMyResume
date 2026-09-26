@@ -9,7 +9,8 @@ from backend.services.scorer import( extract_keywords,
                                     has_phone_number,
                                     experience_score,
                                     extract_years_of_experience,
-                                    score_resume)
+                                    score_resume,
+                                    extract_skill_evidence)
 
 from backend.services.skill_taxonomy import (
                                     SKILL_TAXONOMY,
@@ -501,3 +502,42 @@ def test_skill_alias_map():
     assert SKILL_ALIAS_MAP["postgres"] == "PostgreSQL"
     assert SKILL_ALIAS_MAP["ml"] == "Machine Learning"
     assert SKILL_ALIAS_MAP["nlp"] == "Natural Language Processing"
+
+
+# evidence based testing for context aware skill matching
+
+def test_extract_skill_evidence():
+    text = """
+    Built a FastAPI backend and containerized the application using Docker.
+    """
+    evidence = extract_skill_evidence(text)
+    assert evidence["FastAPI"]
+    assert evidence["Docker"]
+
+def test_skill_evidence_contains_source_sentence():
+    text = """
+    Built a FastAPI backend and containerized the application using Docker.
+    """
+    evidence = extract_skill_evidence(text)
+    assert (evidence["FastAPI"]== "Built a FastAPI backend and containerized the application using Docker.")
+    assert (evidence["Docker"]== "Built a FastAPI backend and containerized the application using Docker.")
+
+def test_extract_skill_evidence_finds_multiple_skills():
+    text = """
+    Developed a REST API using Python and FastAPI with PostgreSQL.
+    """
+    evidence = extract_skill_evidence(text)
+    assert "Python" in evidence
+    assert "FastAPI" in evidence
+    assert "PostgreSQL" in evidence
+    assert "REST API" in evidence
+
+def test_skill_evidence_canonicalizes_aliases():
+    text = """
+    Deployed the application using K8s and Postgres.
+    """
+    evidence = extract_skill_evidence(text)
+    assert "Kubernetes" in evidence
+    assert "PostgreSQL" in evidence
+    assert "K8s" not in evidence
+    assert "Postgres" not in evidence

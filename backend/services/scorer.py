@@ -95,7 +95,7 @@ def extract_keywords(text):
 def extract_skills(text, skills_db= None):
 
     if not text :
-        return []
+        return {}
     if skills_db is None:
         skills_db= list(SKILL_ALIAS_MAP.keys())
 
@@ -132,6 +132,48 @@ def extract_skills(text, skills_db= None):
             occupied_tokens.update(
                 range(start, end))
     return sorted(found_skills)
+
+def extract_skill_evidence(text, skills_db= None):
+
+    if not text :
+        return []
+    if skills_db is None:
+        skills_db= list(SKILL_ALIAS_MAP.keys())
+
+    skill_lookup={}
+    for skill in skills_db:
+        skill_lower= skill.lower()
+        canonical_skill=SKILL_ALIAS_MAP.get(skill_lower,skill)
+        skill_lookup[skill_lower] = canonical_skill
+    matcher =PhraseMatcher(nlp.vocab, attr="LOWER")
+
+    patterns = [nlp.make_doc(skill)for skill in skills_db]
+    matcher.add("SKILLS", patterns )
+    doc= nlp(text)
+
+    matches= matcher(doc)
+    matched_spans = sorted(
+        matches,
+        key=lambda match: (-(match[2] - match[1]), match[1])
+    )
+    evidence= {}
+    occupied_tokens = set()
+
+    for _,start, end in matched_spans:
+        if any( token_index in occupied_tokens
+               for token_index in range(start,end)
+        ):
+            continue
+
+        matched_text= doc[start:end].text.strip().lower()
+        canonical_skill = skill_lookup.get(matched_text)
+
+        if canonical_skill:
+            sentence = doc[start:end].sent.text.strip()
+            evidence[canonical_skill] = sentence
+            occupied_tokens.update(
+                range(start, end))
+    return evidence
 
 
 def keyword_match_score(resume_keywords, jd_keywords):
