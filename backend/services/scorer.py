@@ -7,7 +7,7 @@ from sentence_transformers.util import cos_sim
 from backend.core.config import SENTENCE_TRANSFORMER_MODEL
 from groq import Groq
 from backend.core.config import GROQ_API_KEY, GROQ_MODEL, SCORE_WEIGHTS
-
+from backend.services.skill_taxonomy import SKILL_ALIAS_MAP
 def calculate_overall_score(breakdown):
     total = 0.0
     for component, weight in SCORE_WEIGHTS.items():
@@ -52,6 +52,7 @@ KNOWN_PERSON_NAMES = {
 RESUME_METADATA_WORDS = {
     "year","years","bsc","msc","phd","contact","address","phone","email",
 }
+
 EXCLUDED_ENTITY_TYPES = {
     "PERSON","GPE","LOC","FAC","DATE","TIME","MONEY","CARDINAL","ORDINAL","PERCENT",
 }
@@ -91,15 +92,18 @@ def extract_keywords(text):
 
     return sorted(keywords)
 
-def extract_skills(text, skills_db):
+def extract_skills(text, skills_db= None):
 
-    if not text or not skills_db:
+    if not text :
         return []
-    skill_lookup={
-        skill.lower(): skill
-        for skill in skills_db
-    }
-    
+    if skills_db is None:
+        skills_db= list(SKILL_ALIAS_MAP.keys())
+
+    skill_lookup={}
+    for skill in skills_db:
+        skill_lower= skill.lower()
+        canonical_skill=SKILL_ALIAS_MAP.get(skill_lower,skill)
+        skill_lookup[skill_lower] = canonical_skill
     matcher =PhraseMatcher(nlp.vocab, attr="LOWER")
 
     patterns = [nlp.make_doc(skill)for skill in skills_db]
@@ -107,15 +111,26 @@ def extract_skills(text, skills_db):
     doc= nlp(text)
 
     matches= matcher(doc)
-
+    matched_spans = sorted(
+        matches,
+        key=lambda match: (-(match[2] - match[1]), match[1])
+    )
     found_skills= set()
+    occupied_tokens = set()
 
-    for match_id,start, end in matches:
+    for _,start, end in matched_spans:
+        if any( token_index in occupied_tokens
+               for token_index in range(start,end)
+        ):
+            continue
+
         span_text= doc[start:end].text.strip().lower()
         canonical_skill = skill_lookup.get(span_text)
+
         if canonical_skill:
             found_skills.add(canonical_skill)
-
+            occupied_tokens.update(
+                range(start, end))
     return sorted(found_skills)
 
 

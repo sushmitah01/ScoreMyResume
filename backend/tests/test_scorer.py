@@ -11,7 +11,9 @@ from backend.services.scorer import( extract_keywords,
                                     extract_years_of_experience,
                                     score_resume)
 
-
+from backend.services.skill_taxonomy import (
+                                    SKILL_TAXONOMY,
+                                    SKILL_ALIAS_MAP)
 
 def test_extract_keywords_filters_stop_words():
     text= "The candidate managed a team of engineers."
@@ -181,7 +183,7 @@ def test_extract_skills_finds_real_technical_terms():
 
     assert "ADO.NET" in found
     assert "ASP.NET" in found
-    assert "OOP" in found
+    assert "Object-Oriented Programming" in found
     assert "LINQ" in found
 def test_extract_keywords_filters_jd_boilerplate():
     text = """
@@ -422,3 +424,80 @@ def test_score_resume_missing_skills_reflects_jd_gap():
     assert "Kubernetes" in result["missing_skills"]
     assert "Python" not in result["missing_skills"]
 
+
+#SKILL MATCH TEST 
+
+def test_skill_aliases_are_canonicalized():
+    text = """
+    Experience with Python, K8s, Postgres,
+    RESTful APIs, ML and NLP.
+    """
+    skills = extract_skills(text)
+    assert "Python" in skills
+    assert "Kubernetes" in skills
+    assert "PostgreSQL" in skills
+    assert "REST API" in skills
+    assert "Machine Learning" in skills
+    assert "Natural Language Processing" in skills
+#TEST JAVA as Javascript
+def test_java_and_javascript_are_distinct():
+    text = "Experienced JavaScript developer."
+    skills = extract_skills(
+        text,
+        ["Java", "JavaScript"],
+    )
+    assert "JavaScript" in skills
+    assert "Java" not in skills
+#TEST react as react native
+def test_react_and_react_native_are_distinct():
+    text = "Built applications using React Native."
+    skills = extract_skills(
+        text,
+        ["React", "React Native"],
+    )
+    assert "React Native" in skills
+    assert "React" not in skills
+# postgre sql
+def test_postgresql_aliases():
+    text = """
+    Worked with PostgreSQL and Postgres databases.
+    """
+
+    skills = extract_skills(
+        text,
+        ["PostgreSQL", "Postgres"],
+    )
+    assert "PostgreSQL" in skills
+#kubernates
+def test_kubernetes_aliases():
+    text = """
+    Deployed services using Kubernetes and K8s.
+    """
+
+    skills = extract_skills(
+        text,
+        ["Kubernetes", "K8s"],
+    )
+    assert "Kubernetes" in skills
+#ml aliases test
+def test_machine_learning_aliases():
+    text = """
+    Built machine learning models using ML techniques.
+    """
+    skills = extract_skills(
+        text,
+        ["Machine Learning", "ML"],
+    )
+    assert "Machine Learning" in skills
+#taxonomy canonical test
+def test_skill_taxonomy_contains_canonical_skills():
+    assert "Python" in SKILL_TAXONOMY
+    assert "Kubernetes" in SKILL_TAXONOMY
+    assert "PostgreSQL" in SKILL_TAXONOMY
+    assert "Machine Learning" in SKILL_TAXONOMY   
+#correct mapping test
+def test_skill_alias_map():
+    assert SKILL_ALIAS_MAP["k8s"] == "Kubernetes"
+    assert SKILL_ALIAS_MAP["postgres"] == "PostgreSQL"
+    assert SKILL_ALIAS_MAP["ml"] == "Machine Learning"
+    assert SKILL_ALIAS_MAP["nlp"] == "Natural Language Processing"
