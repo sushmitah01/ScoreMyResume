@@ -519,8 +519,8 @@ def test_skill_evidence_contains_source_sentence():
     Built a FastAPI backend and containerized the application using Docker.
     """
     evidence = extract_skill_evidence(text)
-    assert (evidence["FastAPI"]== "Built a FastAPI backend and containerized the application using Docker.")
-    assert (evidence["Docker"]== "Built a FastAPI backend and containerized the application using Docker.")
+    assert (evidence["FastAPI"]["sentence"]== "Built a FastAPI backend and containerized the application using Docker.")
+    assert (evidence["Docker"]["sentence"]== "Built a FastAPI backend and containerized the application using Docker.")
 
 def test_extract_skill_evidence_finds_multiple_skills():
     text = """
@@ -541,3 +541,87 @@ def test_skill_evidence_canonicalizes_aliases():
     assert "PostgreSQL" in evidence
     assert "K8s" not in evidence
     assert "Postgres" not in evidence
+
+#context_aware 
+
+def test_skill_evidence_detects_strong_context():
+    text = """
+    Built production APIs using FastAPI.
+    """
+    evidence = extract_skill_evidence(text)
+    assert evidence["FastAPI"]["context"] == "strong"
+
+def test_skill_evidence_detects_weak_context():
+    text = """
+    Familiar with FastAPI.
+    """
+    evidence = extract_skill_evidence(text)
+    assert evidence["FastAPI"]["context"] == "weak" 
+def test_skill_evidence_detects_learning_context():
+    text = """
+    Interested in learning Kubernetes.
+    """
+    evidence = extract_skill_evidence(text)
+    assert evidence["Kubernetes"]["context"] == "learning"
+def test_skill_evidence_detects_negative_context():
+    text = """
+    No experience with Docker.
+    """
+    evidence = extract_skill_evidence(text)
+
+    assert evidence["Docker"]["context"] == "negative"
+
+def test_skill_evidence_detects_hands_on_experience():
+    text = """
+    Have hands-on experience with FastAPI.
+    """
+    evidence = extract_skill_evidence(text)
+    assert evidence["FastAPI"]["context"] == "strong"
+
+def test_skill_evidence_detects_production_experience():
+    text = """
+    Used Docker extensively in production.
+    """
+    evidence = extract_skill_evidence(text)
+    assert evidence["Docker"]["context"] == "strong"
+
+def test_skill_evidence_detects_strong_knowledge():
+    text = """
+    Strong knowledge of Python.
+    """
+    evidence = extract_skill_evidence(text)
+    assert evidence["Python"]["context"] == "strong"
+
+def test_skill_evidence_detects_limited_experience():
+    text = """
+    Limited experience with Kubernetes.
+    """
+    evidence = extract_skill_evidence(text)
+    assert evidence["Kubernetes"]["context"] == "weak"
+def test_skill_evidence_detects_current_learning():
+    text = """
+    Currently learning Docker.
+    """
+    evidence = extract_skill_evidence(text)
+    assert evidence["Docker"]["context"] == "learning"
+#edge cases test
+
+def test_negative_context_takes_precedence():
+    text = """No experience with Docker, but interested in learning it."""
+    evidence = extract_skill_evidence(text)
+    assert evidence["Docker"]["context"] == "negative"
+
+def test_strong_context_takes_precedence_over_weak_context():
+    text = """Familiar with Python and have hands-on experience using Python in production."""
+    evidence = extract_skill_evidence(text)
+    assert evidence["Python"]["context"] == "strong"
+
+def test_learning_context_is_not_strong_experience():
+    text = """Currently learning Kubernetes."""
+    evidence = extract_skill_evidence(text)
+    assert evidence["Kubernetes"]["context"] == "learning"
+
+def test_limited_experience_is_not_strong():
+    text = """Limited experience with Docker."""
+    evidence = extract_skill_evidence(text)
+    assert evidence["Docker"]["context"] == "weak"

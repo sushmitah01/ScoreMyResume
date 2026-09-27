@@ -133,6 +133,55 @@ def extract_skills(text, skills_db= None):
                 range(start, end))
     return sorted(found_skills)
 
+def classify_skill_context(sentence):
+    """
+    Classify the context in which a technical skill is mentioned.
+    Returns one of:
+    - strong
+    - weak
+    - learning
+    - negative
+    """
+    sentence_lower = sentence.lower()
+    negative_patterns = [
+        "no experience","no practical experience",
+        "no hands-on experience","without experience","lack experience",
+        "lack of experience","not experienced","never used",
+    ]
+
+    learning_patterns = [
+        "interested in learning","learning",
+        "currently learning","studying","currently studying",
+        "looking to learn","want to learn","willing to learn",
+    ]
+    strong_patterns = [
+        "strong knowledge","strong understanding","hands-on experience","practical experience","production experience",
+        "extensive experience","extensive knowledge","expertise in",
+    ]
+    weak_patterns = [
+        "familiar with","basic knowledge of","basic understanding of",
+        "working knowledge of","limited experience",
+        "limited knowledge","exposure to","knowledge of","understanding of",
+    ]
+
+    for pattern in negative_patterns:
+        if pattern in sentence_lower:
+            return "negative"
+
+    for pattern in learning_patterns:
+        if pattern in sentence_lower:
+            return "learning"
+
+    for pattern in strong_patterns:
+        if pattern in sentence_lower:
+            return "strong"
+
+    for pattern in weak_patterns:
+        if pattern in sentence_lower:
+            return "weak"
+
+    return "strong"
+
 def extract_skill_evidence(text, skills_db= None):
 
     if not text :
@@ -170,7 +219,11 @@ def extract_skill_evidence(text, skills_db= None):
 
         if canonical_skill:
             sentence = doc[start:end].sent.text.strip()
-            evidence[canonical_skill] = sentence
+            context= classify_skill_context(sentence)
+            evidence[canonical_skill] ={
+                "sentence":sentence,
+                "context": context
+            }
             occupied_tokens.update(
                 range(start, end))
     return evidence
