@@ -232,6 +232,19 @@ def classify_evidence_type(sentence):
 
     return "generic"
 
+def classify_evidence_confidence(evidence_type):
+    """Assign a confidence level based on the type of evidence.
+    Returns one of:
+    - high
+    - medium
+    - low
+    """
+    if evidence_type in {"project", "work_experience"}:
+        return "high"
+    if evidence_type in {"education", "certification"}:
+        return "medium"
+    return "low"
+
 def extract_skill_evidence(text, skills_db= None):
 
     if not text :
@@ -270,10 +283,12 @@ def extract_skill_evidence(text, skills_db= None):
             sentence = doc[start:end].sent.text.strip()
             context= classify_skill_context(sentence)
             evidence_type = classify_evidence_type(sentence)
+            confidence = classify_evidence_confidence(evidence_type)
             evidence[canonical_skill] ={
                 "sentence":sentence,
                 "context": context,
-                "evidence_type":evidence_type
+                "evidence_type":evidence_type,
+                "confidence": confidence
             }
             occupied_tokens.update(
                 range(start, end))

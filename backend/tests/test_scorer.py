@@ -663,3 +663,28 @@ def test_skill_evidence_defaults_to_generic_type():
     assert evidence["Python"]["evidence_type"] == "generic"
     assert evidence["Docker"]["evidence_type"] == "generic"
     assert evidence["FastAPI"]["evidence_type"] == "generic"
+
+""" Evidence confidence"""
+
+def test_skill_evidence_confidence_high_for_project():
+    text = """Built a production API using FastAPI. """
+    evidence = extract_skill_evidence(text)
+
+    assert evidence["FastAPI"]["confidence"] == "high"
+
+def test_skill_evidence_confidence_high_for_work_experience():
+    text = """Worked as a backend developer using FastAPI."""
+    evidence = extract_skill_evidence(text)
+    assert evidence["FastAPI"]["confidence"] == "high"
+
+def test_skill_evidence_confidence_medium_for_education():
+    text = """Studied Python as part of my university coursework."""
+    evidence = extract_skill_evidence(text)
+    assert evidence["Python"]["confidence"] == "medium"
+
+def test_skill_evidence_confidence_low_for_generic():
+    text = """ Skills: Python, Docker, FastAPI. """
+    evidence = extract_skill_evidence(text)
+    assert evidence["Python"]["confidence"] == "low"
+    assert evidence["Docker"]["confidence"] == "low"
+    assert evidence["FastAPI"]["confidence"] == "low"
