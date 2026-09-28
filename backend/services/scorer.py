@@ -182,6 +182,56 @@ def classify_skill_context(sentence):
 
     return "strong"
 
+def classify_evidence_type(sentence):
+    """
+    Classify the type of evidence supporting a technical skill.
+    Returns one of:
+    - project
+    - work_experience
+    - education
+    - certification
+    - generic
+    """
+
+    sentence_lower = sentence.lower()
+
+    project_patterns = [
+        "built","developed","implemented","created","designed","engineered",
+        "deployed","integrated", "developed a project", "built a project",
+    ]
+
+    work_patterns = [
+        "worked as","working as","worked at","working at","employment",
+        "job","internship", "intern", "professional experience", "work experience",
+    ]
+
+    education_patterns = [
+        "coursework","course","university","college","degree","studied","academic",
+        "bachelor","master","b.sc","bsc","m.sc","msc",
+    ]
+
+    certification_patterns = [
+        "certification","certified","certificate","credential","completed training","professional training",
+    ]
+
+    for pattern in certification_patterns:
+        if pattern in sentence_lower:
+            return "certification"
+
+    for pattern in work_patterns:
+        if pattern in sentence_lower:
+            return "work_experience"
+
+    for pattern in education_patterns:
+        if pattern in sentence_lower:
+            return "education"
+
+    for pattern in project_patterns:
+        if pattern in sentence_lower:
+            return "project"
+
+    return "generic"
+
 def extract_skill_evidence(text, skills_db= None):
 
     if not text :
@@ -216,13 +266,14 @@ def extract_skill_evidence(text, skills_db= None):
 
         matched_text= doc[start:end].text.strip().lower()
         canonical_skill = skill_lookup.get(matched_text)
-
         if canonical_skill:
             sentence = doc[start:end].sent.text.strip()
             context= classify_skill_context(sentence)
+            evidence_type = classify_evidence_type(sentence)
             evidence[canonical_skill] ={
                 "sentence":sentence,
-                "context": context
+                "context": context,
+                "evidence_type":evidence_type
             }
             occupied_tokens.update(
                 range(start, end))

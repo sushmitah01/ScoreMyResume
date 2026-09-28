@@ -625,3 +625,41 @@ def test_limited_experience_is_not_strong():
     text = """Limited experience with Docker."""
     evidence = extract_skill_evidence(text)
     assert evidence["Docker"]["context"] == "weak"
+
+""" Evidence type classification, from project, internship or work, certification, coursework or generic"""
+
+def test_skill_evidence_detects_project_type():
+    text = """Built a production API using FastAPI."""
+    evidence = extract_skill_evidence(text)
+
+    assert evidence["FastAPI"]["evidence_type"] == "project"
+
+def test_skill_evidence_detects_work_experience_type():
+    text = """Worked as a backend developer using FastAPI."""
+    evidence = extract_skill_evidence(text)
+
+    assert evidence["FastAPI"]["evidence_type"] == "work_experience"
+
+def test_skill_evidence_detects_education_type():
+    text = """Studied Python and machine learning as part of my university coursework.
+    """
+    evidence = extract_skill_evidence(text)
+
+    assert evidence["Python"]["evidence_type"] == "education"
+    assert evidence["Machine Learning"]["evidence_type"] == "education"
+
+
+def test_skill_evidence_detects_certification_type():
+    text = """Completed a professional certification in Python."""
+    evidence = extract_skill_evidence(text)
+
+    assert evidence["Python"]["evidence_type"] == "certification"
+
+
+def test_skill_evidence_defaults_to_generic_type():
+    text = """Skills: Python, Docker, FastAPI."""
+    evidence = extract_skill_evidence(text)
+    
+    assert evidence["Python"]["evidence_type"] == "generic"
+    assert evidence["Docker"]["evidence_type"] == "generic"
+    assert evidence["FastAPI"]["evidence_type"] == "generic"
