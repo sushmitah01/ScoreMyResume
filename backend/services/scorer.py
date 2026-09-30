@@ -6,6 +6,13 @@ from groq import Groq
 from backend.core.config import GROQ_API_KEY, GROQ_MODEL, SCORE_WEIGHTS
 from backend.services.skill_taxonomy import SKILL_ALIAS_MAP
 from backend.services.skill_extractor import find_skill_matches, nlp
+from backend.services.skill_evidence import (
+    classify_skill_context,
+    classify_evidence_type,
+    classify_evidence_confidence,
+    extract_skill_evidence
+)
+
 def calculate_overall_score(breakdown):
     total = 0.0
     for component, weight in SCORE_WEIGHTS.items():
@@ -98,140 +105,6 @@ def extract_skills(text, skills_db= None):
     return sorted({
         canonical_skill for canonical_skill, _, _ in matches})
 
-def classify_skill_context(sentence):
-    """
-    Classify the context in which a technical skill is mentioned.
-    Returns one of:
-    - strong
-    - weak
-    - learning
-    - negative
-    """
-    sentence_lower = sentence.lower()
-    negative_patterns = [
-        "no experience","no practical experience",
-        "no hands-on experience","without experience","lack experience",
-        "lack of experience","not experienced","never used",
-    ]
-
-    learning_patterns = [
-        "interested in learning","learning",
-        "currently learning","studying","currently studying",
-        "looking to learn","want to learn","willing to learn",
-    ]
-    strong_patterns = [
-        "strong knowledge","strong understanding","hands-on experience","practical experience","production experience",
-        "extensive experience","extensive knowledge","expertise in",
-    ]
-    weak_patterns = [
-        "familiar with","basic knowledge of","basic understanding of",
-        "working knowledge of","limited experience",
-        "limited knowledge","exposure to","knowledge of","understanding of",
-    ]
-
-    for pattern in negative_patterns:
-        if pattern in sentence_lower:
-            return "negative"
-
-    for pattern in learning_patterns:
-        if pattern in sentence_lower:
-            return "learning"
-
-    for pattern in strong_patterns:
-        if pattern in sentence_lower:
-            return "strong"
-
-    for pattern in weak_patterns:
-        if pattern in sentence_lower:
-            return "weak"
-
-    return "strong"
-
-def classify_evidence_type(sentence):
-    """
-    Classify the type of evidence supporting a technical skill.
-    Returns one of:
-    - project
-    - work_experience
-    - education
-    - certification
-    - generic
-    """
-
-    sentence_lower = sentence.lower()
-
-    project_patterns = [
-        "built","developed","implemented","created","designed","engineered",
-        "deployed","integrated", "developed a project", "built a project",
-    ]
-
-    work_patterns = [
-        "worked as","working as","worked at","working at","employment",
-        "job","internship", "intern", "professional experience", "work experience",
-    ]
-
-    education_patterns = [
-        "coursework","course","university","college","degree","studied","academic",
-        "bachelor","master","b.sc","bsc","m.sc","msc",
-    ]
-
-    certification_patterns = [
-        "certification","certified","certificate","credential","completed training","professional training",
-    ]
-
-    for pattern in certification_patterns:
-        if pattern in sentence_lower:
-            return "certification"
-
-    for pattern in work_patterns:
-        if pattern in sentence_lower:
-            return "work_experience"
-
-    for pattern in education_patterns:
-        if pattern in sentence_lower:
-            return "education"
-
-    for pattern in project_patterns:
-        if pattern in sentence_lower:
-            return "project"
-
-    return "generic"
-
-def classify_evidence_confidence(evidence_type):
-    """Assign a confidence level based on the type of evidence.
-    Returns one of:
-    - high
-    - medium
-    - low
-    """
-    if evidence_type in {"project", "work_experience"}:
-        return "high"
-    if evidence_type in {"education", "certification"}:
-        return "medium"
-    return "low"
-
-def extract_skill_evidence(text, skills_db= None):
-
-    if not text :
-        return {}
-
-    doc= nlp(text)
-
-    matches= find_skill_matches(text, skills_db)
-    evidence= {}
-
-    for canonical_skill,start,end in matches:
-        sentence = doc[start:end].sent.text.strip()
-        context= classify_skill_context(sentence)
-        evidence_type = classify_evidence_type(sentence)
-        confidence = classify_evidence_confidence(evidence_type)
-        evidence[canonical_skill] ={
-            "sentence":sentence,
-            "context": context,
-            "evidence_type":evidence_type,
-            "confidence": confidence
-        }
-    return evidence
 
 
 def keyword_match_score(resume_keywords, jd_keywords):
