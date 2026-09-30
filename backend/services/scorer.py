@@ -1,20 +1,17 @@
-import spacy
 import re
-from spacy.matcher import PhraseMatcher
-from backend.core.config import SPACY_MODEL
 from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import cos_sim
 from backend.core.config import SENTENCE_TRANSFORMER_MODEL
 from groq import Groq
 from backend.core.config import GROQ_API_KEY, GROQ_MODEL, SCORE_WEIGHTS
 from backend.services.skill_taxonomy import SKILL_ALIAS_MAP
+from backend.services.skill_extractor import find_skill_matches, nlp
 def calculate_overall_score(breakdown):
     total = 0.0
     for component, weight in SCORE_WEIGHTS.items():
         total += breakdown[component] * (weight / 100)
     return round(total, 1)
 
-nlp = spacy.load(SPACY_MODEL)
 sentence_model = SentenceTransformer(SENTENCE_TRANSFORMER_MODEL)
 client = Groq(api_key=GROQ_API_KEY)
 
@@ -95,43 +92,11 @@ def extract_keywords(text):
 def extract_skills(text, skills_db= None):
 
     if not text :
-        return {}
-    if skills_db is None:
-        skills_db= list(SKILL_ALIAS_MAP.keys())
+        return []
 
-    skill_lookup={}
-    for skill in skills_db:
-        skill_lower= skill.lower()
-        canonical_skill=SKILL_ALIAS_MAP.get(skill_lower,skill)
-        skill_lookup[skill_lower] = canonical_skill
-    matcher =PhraseMatcher(nlp.vocab, attr="LOWER")
-
-    patterns = [nlp.make_doc(skill)for skill in skills_db]
-    matcher.add("SKILLS", patterns )
-    doc= nlp(text)
-
-    matches= matcher(doc)
-    matched_spans = sorted(
-        matches,
-        key=lambda match: (-(match[2] - match[1]), match[1])
-    )
-    found_skills= set()
-    occupied_tokens = set()
-
-    for _,start, end in matched_spans:
-        if any( token_index in occupied_tokens
-               for token_index in range(start,end)
-        ):
-            continue
-
-        span_text= doc[start:end].text.strip().lower()
-        canonical_skill = skill_lookup.get(span_text)
-
-        if canonical_skill:
-            found_skills.add(canonical_skill)
-            occupied_tokens.update(
-                range(start, end))
-    return sorted(found_skills)
+    matches= find_skill_matches(text,skills_db)
+    return sorted({
+        canonical_skill for canonical_skill, _, _ in matches})
 
 def classify_skill_context(sentence):
     """
@@ -248,50 +213,24 @@ def classify_evidence_confidence(evidence_type):
 def extract_skill_evidence(text, skills_db= None):
 
     if not text :
-        return []
-    if skills_db is None:
-        skills_db= list(SKILL_ALIAS_MAP.keys())
+        return {}
 
-    skill_lookup={}
-    for skill in skills_db:
-        skill_lower= skill.lower()
-        canonical_skill=SKILL_ALIAS_MAP.get(skill_lower,skill)
-        skill_lookup[skill_lower] = canonical_skill
-    matcher =PhraseMatcher(nlp.vocab, attr="LOWER")
-
-    patterns = [nlp.make_doc(skill)for skill in skills_db]
-    matcher.add("SKILLS", patterns )
     doc= nlp(text)
 
-    matches= matcher(doc)
-    matched_spans = sorted(
-        matches,
-        key=lambda match: (-(match[2] - match[1]), match[1])
-    )
+    matches= find_skill_matches(text, skills_db)
     evidence= {}
-    occupied_tokens = set()
 
-    for _,start, end in matched_spans:
-        if any( token_index in occupied_tokens
-               for token_index in range(start,end)
-        ):
-            continue
-
-        matched_text= doc[start:end].text.strip().lower()
-        canonical_skill = skill_lookup.get(matched_text)
-        if canonical_skill:
-            sentence = doc[start:end].sent.text.strip()
-            context= classify_skill_context(sentence)
-            evidence_type = classify_evidence_type(sentence)
-            confidence = classify_evidence_confidence(evidence_type)
-            evidence[canonical_skill] ={
-                "sentence":sentence,
-                "context": context,
-                "evidence_type":evidence_type,
-                "confidence": confidence
-            }
-            occupied_tokens.update(
-                range(start, end))
+    for canonical_skill,start,end in matches:
+        sentence = doc[start:end].sent.text.strip()
+        context= classify_skill_context(sentence)
+        evidence_type = classify_evidence_type(sentence)
+        confidence = classify_evidence_confidence(evidence_type)
+        evidence[canonical_skill] ={
+            "sentence":sentence,
+            "context": context,
+            "evidence_type":evidence_type,
+            "confidence": confidence
+        }
     return evidence
 
 
