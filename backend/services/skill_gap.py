@@ -1,5 +1,6 @@
 from backend.services.skill_extractor import find_skill_matches
 from backend.services.skill_evidence import extract_skill_evidence
+from backend.services.skill_requirement import extract_skill_requirements
 
 def extract_skill_set(text):
     """Extract canonical skills from text and return them as a set."""
@@ -13,7 +14,7 @@ def analyze_skill_gap(resume, job_description):
     """Compare resume skills against skills required by a job description.
     Returns:
         {
-            "strong_matched": [...],
+            "strong_match": [...],
             "weak_match": [...],
             "missing": [...],
             "extra": [...]
@@ -22,6 +23,7 @@ def analyze_skill_gap(resume, job_description):
     resume_skills = extract_skill_set(resume)
     job_skills = extract_skill_set(job_description)
     resume_evidence = extract_skill_evidence(resume)
+    job_requirements = extract_skill_requirements(job_description)
     strong_match = set()
     weak_match = set()  
     
@@ -42,10 +44,22 @@ def analyze_skill_gap(resume, job_description):
     )
     extra = resume_skills - job_skills
     matched = strong_match | weak_match
+    required_missing = {
+        skill
+        for skill in missing
+        if job_requirements.get(skill) == "required"
+    }
+    preferred_missing = {
+        skill
+        for skill in missing
+        if job_requirements.get(skill) == "preferred"
+}
     return {
         "matched": sorted(matched),
         "strong_match": sorted(strong_match),
         "weak_match": sorted(weak_match),
         "missing": sorted(missing),
+        "required_missing": sorted(required_missing),
+        "preferred_missing": sorted(preferred_missing),
         "extra": sorted(extra),
     }
