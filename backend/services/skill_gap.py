@@ -1,7 +1,12 @@
 from backend.services.skill_extractor import find_skill_matches
 from backend.services.skill_evidence import extract_skill_evidence
 from backend.services.skill_requirement import extract_skill_requirements
-
+from backend.services.requirement_weight import (
+    calculate_total_weight,
+    calculate_matched_weight,
+    calculate_missing_weight,
+    calculate_weighted_match_percentage,
+)
 def extract_skill_set(text):
     """Extract canonical skills from text and return them as a set."""
     matches = find_skill_matches(text)
@@ -18,6 +23,10 @@ def analyze_skill_gap(resume, job_description):
             "weak_match": [...],
             "missing": [...],
             "extra": [...]
+            "total_requirement_weight": float, 
+            "matched_requirement_weight": float, 
+            "missing_requirement_weight": float, 
+            "weighted_match_percentage": float,
         }
     """
     resume_skills = extract_skill_set(resume)
@@ -44,6 +53,24 @@ def analyze_skill_gap(resume, job_description):
     )
     extra = resume_skills - job_skills
     matched = strong_match | weak_match
+    total_requirement_weight = calculate_total_weight(
+        job_requirements
+    )
+
+    matched_requirement_weight = calculate_matched_weight(
+        job_requirements,
+        matched
+    )
+
+    missing_requirement_weight = calculate_missing_weight(
+        job_requirements,
+        matched
+    )
+
+    weighted_match_percentage = calculate_weighted_match_percentage(
+        job_requirements,
+        matched
+    )    
     required_missing = {
         skill
         for skill in missing
@@ -62,4 +89,8 @@ def analyze_skill_gap(resume, job_description):
         "required_missing": sorted(required_missing),
         "preferred_missing": sorted(preferred_missing),
         "extra": sorted(extra),
+        "total_requirement_weight": total_requirement_weight, 
+        "matched_requirement_weight": matched_requirement_weight,
+        "missing_requirement_weight": missing_requirement_weight,
+        "weighted_match_percentage": weighted_match_percentage,        
     }

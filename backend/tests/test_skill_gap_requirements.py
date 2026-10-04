@@ -1,4 +1,3 @@
-
 from backend.services.skill_gap import analyze_skill_gap
 
 
@@ -93,17 +92,39 @@ def test_preferred_and_required_skills_use_canonical_names():
     resume = """
     Python experience.
     """
-
     job_description = """
     Required Skills:
     - Python
     - FastAPI
-
     Preferred Skills:
     - Kubernetes
     """
 
     result = analyze_skill_gap(resume, job_description)
-
     assert result["required_missing"] == ["FastAPI"]
     assert result["preferred_missing"] == ["Kubernetes"]
+
+
+def test_skill_gap_calculates_requirement_weight():
+    resume = """
+    I have experience with Python and AWS.
+    """
+    job_description = """
+    Required:
+    - Python
+    - FastAPI
+
+    Preferred:
+    - AWS
+    """
+    result = analyze_skill_gap(
+        resume,
+        job_description,
+    )
+
+    assert result["matched"] == ["AWS", "Python"]
+    assert result["missing"] == ["FastAPI"]
+    assert result["total_requirement_weight"] == 8.0
+    assert result["matched_requirement_weight"] == 5.0
+    assert result["missing_requirement_weight"] == 3.0
+    assert result["weighted_match_percentage"] == 62.5 
