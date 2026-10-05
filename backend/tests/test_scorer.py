@@ -16,6 +16,8 @@ from backend.services.skill_taxonomy import (
                                     SKILL_TAXONOMY,
                                     SKILL_ALIAS_MAP)
 
+from backend.services.skill_gap import analyze_skill_gap
+
 def test_extract_keywords_filters_stop_words():
     text= "The candidate managed a team of engineers."
     keywords= extract_keywords(text)
@@ -425,6 +427,59 @@ def test_score_resume_missing_skills_reflects_jd_gap():
     assert "Kubernetes" in result["missing_skills"]
     assert "Python" not in result["missing_skills"]
 
+
+def test_score_resume_uses_requirement_aware_skill_gap():
+    resume_text = """
+    I have experience with Python and AWS.
+    """
+
+    jd_text = """
+    Required:
+    - Python
+    - FastAPI
+
+    Preferred:
+    - AWS
+    """
+
+    skills_db = ["Python", "FastAPI", "AWS"]
+
+    result = score_resume(
+        resume_text,
+        jd_text,
+        skills_db,
+        required_years=0,
+    )
+
+    assert result["required_missing"] == ["FastAPI"]
+    assert result["preferred_missing"] == []
+    assert result["total_requirement_weight"] == 8.0
+    assert result["matched_requirement_weight"] == 5.0
+    assert result["missing_requirement_weight"] == 3.0
+    assert result["weighted_match_percentage"] == 62.5
+
+""" global taxonomy and skill_db use test"""
+
+def test_score_resume_respects_custom_skills_db():
+    resume_text = "I have experience with Python and Docker."
+
+    jd_text = """
+    Required:
+    - Python
+    - Docker
+    - Kubernetes
+    """
+    skills_db = ["Python", "Docker"]
+
+    result = score_resume(
+        resume_text,
+        jd_text,
+        skills_db,
+        required_years=0,
+    )
+    assert result["matched_skills"] == ["Docker", "Python"]
+    assert result["missing_skills"] == []
+    assert result["total_requirement_weight"] == 6.0
 
 #SKILL MATCH TEST 
 

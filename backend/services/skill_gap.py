@@ -7,32 +7,34 @@ from backend.services.requirement_weight import (
     calculate_missing_weight,
     calculate_weighted_match_percentage,
 )
-def extract_skill_set(text):
+def extract_skill_set(text,skills_db=None):
     """Extract canonical skills from text and return them as a set."""
-    matches = find_skill_matches(text)
+    matches = find_skill_matches(text, skills_db)
     return {
         canonical_skill
         for canonical_skill, _, _ in matches
     }
 
-def analyze_skill_gap(resume, job_description):
+def analyze_skill_gap(resume, job_description, skills_db=None):
     """Compare resume skills against skills required by a job description.
     Returns:
         {
             "strong_match": [...],
             "weak_match": [...],
             "missing": [...],
-            "extra": [...]
+            "extra": [...],
             "total_requirement_weight": float, 
             "matched_requirement_weight": float, 
             "missing_requirement_weight": float, 
             "weighted_match_percentage": float,
         }
     """
-    resume_skills = extract_skill_set(resume)
-    job_skills = extract_skill_set(job_description)
+    resume_skills = extract_skill_set(resume,skills_db)
+    job_skills = extract_skill_set(job_description,skills_db)
     resume_evidence = extract_skill_evidence(resume)
-    job_requirements = extract_skill_requirements(job_description)
+    job_requirements = {skill:requirement_level
+                        for skill, requirement_level in extract_skill_requirements(job_description).items()
+                        if skill in job_skills}
     strong_match = set()
     weak_match = set()  
     

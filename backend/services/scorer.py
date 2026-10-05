@@ -12,7 +12,7 @@ from backend.services.skill_evidence import (
     classify_evidence_confidence,
     extract_skill_evidence
 )
-
+from backend.services.skill_gap import analyze_skill_gap
 def calculate_overall_score(breakdown):
     total = 0.0
     for component, weight in SCORE_WEIGHTS.items():
@@ -208,23 +208,19 @@ def score_resume(resume_text, jd_text, skills_db, required_years):
     resume_keywords = extract_keywords(resume_text)
     jd_keywords = extract_keywords(jd_text)
 
-    resume_skills = extract_skills(resume_text, skills_db)
-    jd_skills = extract_skills(jd_text, skills_db)
+    # resume_skills = extract_skills(resume_text, skills_db)
+    # jd_skills = extract_skills(jd_text, skills_db)
 
     matched_keywords = sorted(set(resume_keywords) & set(jd_keywords))
     missing_keywords = sorted(set(jd_keywords) - set(resume_keywords))
-
-    matched_skills = sorted(set(resume_skills) & set(jd_skills))
-    missing_skills = sorted(set(jd_skills) - set(resume_skills))
+    skill_gap = analyze_skill_gap(resume_text, jd_text,skills_db)
+    matched_skills = skill_gap["matched"]
+    missing_skills = skill_gap["missing"]
 
     keywords_score = keyword_match_score(resume_keywords, jd_keywords)
     semantic_score = semantic_similarity_score(resume_text, jd_text)
 
-    if jd_skills:
-        skills_score = (len(matched_skills) / len(jd_skills)) * 100
-    else:
-        skills_score = 0.0
-    skills_score = round(skills_score, 1)
+    skills_score = skill_gap["weighted_match_percentage"]
 
     format_score = formatting_score(resume_text)
 
@@ -256,5 +252,11 @@ def score_resume(resume_text, jd_text, skills_db, required_years):
         "missing_keywords": missing_keywords,
         "matched_skills": matched_skills,
         "missing_skills": missing_skills,
+        "required_missing": skill_gap["required_missing"],
+        "preferred_missing": skill_gap["preferred_missing"],
+        "total_requirement_weight": skill_gap["total_requirement_weight"],
+        "matched_requirement_weight": skill_gap["matched_requirement_weight"],
+        "missing_requirement_weight": skill_gap["missing_requirement_weight"],
+        "weighted_match_percentage": skill_gap["weighted_match_percentage"],
         "ai_feedback": ai_feedback,
     }
