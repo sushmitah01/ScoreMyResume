@@ -1,7 +1,4 @@
 import re
-from sentence_transformers import SentenceTransformer
-from sentence_transformers.util import cos_sim
-from backend.core.config import SENTENCE_TRANSFORMER_MODEL
 from groq import Groq
 from backend.core.config import GROQ_API_KEY, GROQ_MODEL, SCORE_WEIGHTS
 from backend.services.skill_taxonomy import SKILL_ALIAS_MAP
@@ -13,13 +10,14 @@ from backend.services.skill_evidence import (
     extract_skill_evidence
 )
 from backend.services.skill_gap import analyze_skill_gap
+from backend.services.semantic_matcher import semantic_similarity_score
+
 def calculate_overall_score(breakdown):
     total = 0.0
     for component, weight in SCORE_WEIGHTS.items():
         total += breakdown[component] * (weight / 100)
     return round(total, 1)
 
-sentence_model = SentenceTransformer(SENTENCE_TRANSFORMER_MODEL)
 client = Groq(api_key=GROQ_API_KEY)
 
 GENERIC_FILLER_WORDS = {
@@ -119,14 +117,6 @@ def keyword_match_score(resume_keywords, jd_keywords):
 
     return round(score,1)
 
-def semantic_similarity_score(text1, text2):
-    embedding1 = sentence_model.encode(text1)
-    embedding2 = sentence_model.encode(text2)
-
-    similarity = cos_sim(embedding1, embedding2)
-    score = similarity.item() * 100
-
-    return round(score, 1)
 
 
 def generate_ai_feedback(matched_keywords, missing_keywords, matched_skills, missing_skills, semantic_score):
