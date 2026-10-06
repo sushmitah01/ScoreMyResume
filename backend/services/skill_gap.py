@@ -1,6 +1,12 @@
 from backend.services.skill_extractor import find_skill_matches
 from backend.services.skill_evidence import extract_skill_evidence
 from backend.services.skill_requirement import extract_skill_requirements
+from backend.services.semantic_matcher import (
+    find_best_matching_sentence,
+    find_semantic_evidence,
+    SEMANTIC_EVIDENCE_THRESHOLD,
+)
+
 from backend.services.requirement_weight import (
     calculate_total_weight,
     calculate_matched_weight,
@@ -35,9 +41,32 @@ def analyze_skill_gap(resume, job_description, skills_db=None):
     job_requirements = {skill:requirement_level
                         for skill, requirement_level in extract_skill_requirements(job_description).items()
                         if skill in job_skills}
+    semantic_evidence = {}
+    for skill in skills_db or []:
+        requirement_result = find_best_matching_sentence(
+            skill,
+            job_description,
+        )
+        if requirement_result["score"] < SEMANTIC_EVIDENCE_THRESHOLD:
+            continue
+
+        requirement_sentence = requirement_result["sentence"]
+
+        resume_result = find_semantic_evidence(
+            requirement_sentence,
+            resume,
+        )
+
+        if resume_result["is_match"]:
+            semantic_evidence[skill] = {
+                "sentence": resume_result["sentence"],
+                "score": resume_result["score"],
+                "is_match": resume_result["is_match"],
+                "requirement_sentence": requirement_sentence,
+                "requirement_score": requirement_result["score"],
+            }
     strong_match = set()
     weak_match = set()  
-    
     for skill in resume_skills & job_skills:
         evidence = resume_evidence.get(skill, {})
         context = evidence.get("context")
@@ -84,6 +113,7 @@ def analyze_skill_gap(resume, job_description, skills_db=None):
         if job_requirements.get(skill) == "preferred"
 }
     return {
+        "semantic_evidence": semantic_evidence,
         "matched": sorted(matched),
         "strong_match": sorted(strong_match),
         "weak_match": sorted(weak_match),

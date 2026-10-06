@@ -1,5 +1,6 @@
 from backend.services.skill_requirement import (
     classify_skill_requirement,
+    extract_skill_requirement_details
 )
 
 
@@ -67,3 +68,19 @@ def test_optional_skill():
 def test_ideal_candidate():
     sentence = "Python experience is desired for the ideal candidate."
     assert classify_skill_requirement(sentence) == "preferred"
+
+
+def test_extract_skill_requirement_details_preserves_sentence():
+    job_description = """
+    Required:
+    - Experience designing scalable distributed backend systems using Distributed Systems concepts.
+    """
+    result = extract_skill_requirement_details(
+        job_description,
+        ["Distributed Systems"],
+    )
+    assert result["Distributed Systems"]["level"] == "required"
+    assert (
+        result["Distributed Systems"]["sentence"]
+        == "Experience designing scalable distributed backend systems using Distributed Systems concepts."
+    )

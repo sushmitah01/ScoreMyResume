@@ -1,6 +1,5 @@
 from backend.services.skill_gap import analyze_skill_gap
 
-
 def test_skill_gap_finds_missing_skills():
     resume = """Built APIs using Python and FastAPI. Used PostgreSQL and Docker in projects.
     """
@@ -53,3 +52,55 @@ def test_skill_gap_detects_extra_resume_skills():
         job_description
     )
     assert "Redis" in result["extra"]
+
+def test_skill_gap_finds_semantic_evidence_for_requirement():
+    resume = """Architected high-throughput microservices capable of serving millions of requests."""
+    job_description = """
+    Required:
+    - Experience designing scalable distributed backend systems.
+    """
+    skills_db = ["Distributed Systems"]
+    result = analyze_skill_gap(
+        resume,
+        job_description,
+        skills_db,
+    )
+    assert "Distributed Systems" in result["semantic_evidence"]
+
+def test_skill_gap_semantic_evidence_contains_sentence_and_score():
+    resume = """Architected high-throughput microservices capable of serving millions of requests."""
+    job_description = """
+    Required:
+    - Experience designing scalable distributed backend systems.
+    """
+    skills_db = ["Distributed Systems"]
+    result = analyze_skill_gap(
+        resume,
+        job_description,
+        skills_db,
+    )
+    evidence = result["semantic_evidence"]["Distributed Systems"]
+    assert evidence["sentence"] != ""
+    assert evidence["score"] > 0
+    assert evidence["is_match"] is True
+    assert evidence["requirement_sentence"] != ""
+    assert evidence["requirement_score"] > 0
+
+
+def test_skill_gap_semantic_evidence_removes_requirement_bullet_marker():
+    resume = """Architected high-throughput microservices capable of serving millions of requests."""
+
+    job_description = """
+    Required:
+    - Experience designing scalable distributed backend systems.
+    """
+    skills_db = ["Distributed Systems"]
+    result = analyze_skill_gap(
+        resume,
+        job_description,
+        skills_db,
+    )
+    evidence = result["semantic_evidence"]["Distributed Systems"]
+    assert evidence["requirement_sentence"] == (
+        "Experience designing scalable distributed backend systems."
+    )

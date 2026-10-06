@@ -52,21 +52,20 @@ def classify_skill_requirement(sentence):
             return "preferred"
     return "unspecified"
 
-def extract_skill_requirements(job_description):
+def extract_skill_requirement_details(job_description,skills_db=None):
     """
     to extract skills from a job description and level them accordingly.
 
     Returns:
         {
-            "Python": "required",
-            "AWS": "preferred",
-            "PostgreSQL": "unspecified"
+            "Python": {"level": "required",
+            "sentence": "Experience with Python is required."}
         }
     """
     if not job_description:
         return {}
     requirements = {}
-    matches = find_skill_matches(job_description)
+    matches = find_skill_matches(job_description, skills_db)
     doc = nlp(job_description)
     lines = job_description.splitlines()
     required_section_patterns = [
@@ -97,10 +96,12 @@ def extract_skill_requirements(job_description):
                 break
 
         if skill_line_index is None:
-            requirements[canonical_skill] = "unspecified"
+            requirements[canonical_skill] = { "level":"unspecified",
+                                             "sentence": skill_span.sent.text.strip(),}
             continue
 
         skill_line = lines[skill_line_index].strip()
+        semantic_sentence = re.sub(r"^[-*]\s+", "", skill_line)
         is_bullet = (
             skill_line.startswith("- ")
             or skill_line.startswith("* ")
@@ -110,7 +111,8 @@ def extract_skill_requirements(job_description):
             sentence = skill_span.sent.text.strip()
             sentence_requirement = classify_skill_requirement(sentence)
             if sentence_requirement != "unspecified":
-                requirements[canonical_skill] = sentence_requirement
+                requirements[canonical_skill] = {"level":sentence_requirement,
+                                                 "sentence": sentence,}
                 continue
         section_requirement = "unspecified"
         for index in range(skill_line_index - 1, -1, -1):
@@ -133,5 +135,16 @@ def extract_skill_requirements(job_description):
             ):
                 section_requirement = "preferred"
                 break
-        requirements[canonical_skill] = section_requirement
+        requirements[canonical_skill] = {"level":section_requirement,
+                                           "sentence": semantic_sentence,
+}
     return requirements
+
+
+def extract_skill_requirements(job_description, skills_db=None):
+    details = extract_skill_requirement_details(job_description, skills_db)
+
+    return {
+        skill: data["level"]
+        for skill, data in details.items()
+    }
