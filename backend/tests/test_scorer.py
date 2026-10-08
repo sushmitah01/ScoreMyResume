@@ -3,7 +3,6 @@ from unittest.mock import patch, MagicMock
 from backend.services.scorer import( extract_keywords,
                                      extract_skills,
                                     keyword_match_score,
-                                    generate_ai_feedback,
                                     formatting_score,
                                     has_phone_number,
                                     experience_score,
@@ -18,6 +17,20 @@ from backend.services.skill_taxonomy import (
 
 from backend.services.skill_gap import analyze_skill_gap
 
+@pytest.fixture(autouse=True)
+def mock_llm_analysis(monkeypatch):
+    def fake_analyze_resume(resume, job_description, analysis_data=None):
+        return {
+            "summary": "Test LLM analysis.",
+            "strengths": [],
+            "gaps": [],
+            "recommendations": [],
+        }
+
+    monkeypatch.setattr(
+        "backend.services.scorer.analyze_resume",
+        fake_analyze_resume,
+    )
 def test_extract_keywords_filters_stop_words():
     text= "The candidate managed a team of engineers."
     keywords= extract_keywords(text)
@@ -213,52 +226,6 @@ def test_extract_keywords_returns_sorted_unique_keywords():
     keywords = extract_keywords(text)
     assert keywords == sorted(set(keywords))
 
-
-#ai feedback using groq mock test
-def test_generate_ai_feedback_returns_a_string():
-    mock_response = MagicMock()
-    mock_response.choices[0].message.content= "Solid resume. Consider highlighting Kubernetes experience."
-    with patch("backend.services.scorer.client.chat.completions.create",return_value= mock_response):
-        feedback= generate_ai_feedback(
-            matched_keywords=["python", "docker"],
-            missing_keywords=["kubernetes"],
-            matched_skills=["Python", "Docker"],
-            missing_skills=["kubernetes"],
-            semantic_score= 72.5,
-        )
-
-    assert isinstance(feedback,str)
-    assert len(feedback) >0
-
-def test_generate_ai_feedback_missing_skill_in_prompt():
-    mock_response = MagicMock()
-    mock_response.choices[0].message.content = "Some feedback text."
-
-    with patch("backend.services.scorer.client.chat.completions.create", return_value=mock_response) as mock_create:
-        generate_ai_feedback(
-            matched_keywords=["python"],
-            missing_keywords=[],
-            matched_skills=["Python"],
-            missing_skills=["Kubernetes"],
-            semantic_score=80.0,
-        )
-
-    call_args = mock_create.call_args
-    prompt_text = str(call_args)
-    assert "Kubernetes" in prompt_text   
-
-def test_generate_ai_feedback_returns_fallback_on_api_error():
-    with patch("backend.services.scorer.client.chat.completions.create", side_effect=Exception("API down")):
-        feedback = generate_ai_feedback(
-            matched_keywords=["python"],
-            missing_keywords=["docker"],
-            matched_skills=["Python"],
-            missing_skills=["Docker"],
-            semantic_score=60.0,
-        )
-
-    assert isinstance(feedback, str)
-    assert len(feedback) > 0
 #formatting
 def test_formatting_score_full_marks_for_complete_resume():
     text=""" Nusrat Nodi
@@ -358,7 +325,7 @@ def test_score_resume_returns_all_expected_keys():
 
     expected_keys = {
         "overall_score", "breakdown", "matched_keywords", "missing_keywords",
-        "matched_skills", "missing_skills", "ai_feedback",
+        "matched_skills", "missing_skills",
     }
     assert expected_keys.issubset(result.keys())
 
@@ -711,3 +678,56 @@ def test_skill_evidence_confidence_low_for_generic():
     assert evidence["Python"]["confidence"] == "low"
     assert evidence["Docker"]["confidence"] == "low"
     assert evidence["FastAPI"]["confidence"] == "low"
+def test_score_resume_returns_structured_llm_analysis(monkeypatch):
+    def fake_analyze_resume(resume, job_description, analysis_data=None):
+        return {
+            "summary": "Strong backend alignment.",
+            "strengths": [
+                {
+                    "skill": "Python",
+                    "explanation": "The resume demonstrates Python experience.",
+                }
+            ],
+            "gaps": [
+                {
+                    "skill": "Kubernetes",
+                    "severity": "high",
+                    "explanation": "Kubernetes is required but missing.",
+                }
+            ],
+            "recommendations": [
+                "Add Kubernetes experience to a backend project."
+            ],
+        }
+
+    monkeypatch.setattr(
+        "backend.services.scorer.analyze_resume",
+        fake_analyze_resume,
+    )
+
+    result = score_resume(
+        resume_text="""
+        Python developer with FastAPI experience.
+        Built backend APIs and microservices.
+        """,
+        jd_text="""
+        Required:
+        - Python
+        - FastAPI
+        - Kubernetes
+        """,
+        skills_db=[
+            "Python",
+            "FastAPI",
+            "Kubernetes",
+        ],
+        required_years=0,
+    )
+
+    assert "llm_analysis" in result
+    assert result["llm_analysis"]["summary"] == (
+        "Strong backend alignment."
+    )
+    assert result["llm_analysis"]["strengths"][0]["skill"] == "Python"
+    assert result["llm_analysis"]["gaps"][0]["severity"] == "high"
+    assert len(result["llm_analysis"]["recommendations"]) == 1

@@ -1,6 +1,5 @@
 import re
-from groq import Groq
-from backend.core.config import GROQ_API_KEY, GROQ_MODEL, SCORE_WEIGHTS
+from backend.core.config import SCORE_WEIGHTS
 from backend.services.skill_taxonomy import SKILL_ALIAS_MAP
 from backend.services.skill_extractor import find_skill_matches, nlp
 from backend.services.skill_evidence import (
@@ -11,14 +10,13 @@ from backend.services.skill_evidence import (
 )
 from backend.services.skill_gap import analyze_skill_gap
 from backend.services.semantic_matcher import semantic_similarity_score
-
+from backend.services.llm_analyzer import analyze_resume
 def calculate_overall_score(breakdown):
     total = 0.0
     for component, weight in SCORE_WEIGHTS.items():
         total += breakdown[component] * (weight / 100)
     return round(total, 1)
 
-client = Groq(api_key=GROQ_API_KEY)
 
 GENERIC_FILLER_WORDS = {
     "experience","skill",
@@ -118,27 +116,6 @@ def keyword_match_score(resume_keywords, jd_keywords):
     return round(score,1)
 
 
-
-def generate_ai_feedback(matched_keywords, missing_keywords, matched_skills, missing_skills, semantic_score):
-    prompt= f"""You are a resume coach. Based on this  ATS scoring data,write 2-3 sentences of constructive feedback for the candidate. 
-Matched keywords: {', '.join(matched_keywords) if matched_keywords else 'none'}
-Missing keywords: {', '.join(missing_keywords) if missing_keywords else 'none'}
-Matched skills: {', '.join(matched_skills) if matched_skills else 'none'}
-Missing skills: {', '.join(missing_skills) if missing_skills else 'none'}
-Semantic similarity score: {semantic_score}/100
-
-Keep it encouraging but specific about what to improve."""
-    try:
-        response= client.chat.completions.create(
-            model= GROQ_MODEL,
-        messages=[{"role":"user", "content":prompt}],
-
-        )
-        return response.choices[0].message.content
-    except Exception:
-        return "We couldn't generate personalized AI feedback right now, but your score breakdown above still reflects your resume's match this job description."
-
-
 SECTION_HEADERS = ["experience", "education", "skills", "projects", "summary"]
 def has_phone_number(text):
     candidates = re.findall(r"\+?[\d][\d\-.\s()]{6,}\d", text)
@@ -227,13 +204,20 @@ def score_resume(resume_text, jd_text, skills_db, required_years):
 
     overall = calculate_overall_score(breakdown)
 
-    ai_feedback = generate_ai_feedback(
-        matched_keywords=matched_keywords,
-        missing_keywords=missing_keywords,
-        matched_skills=matched_skills,
-        missing_skills=missing_skills,
-        semantic_score=semantic_score,
-    )
+    llm_analysis_data = {
+    "score": overall,
+    "matched": skill_gap["matched"],
+    "weak_match": skill_gap["weak_match"],
+    "missing": skill_gap["missing"],
+    "required_missing": skill_gap["required_missing"],
+    "preferred_missing": skill_gap["preferred_missing"],
+    "semantic_evidence": skill_gap["semantic_evidence"],
+    "weighted_match_percentage": skill_gap["weighted_match_percentage"],
+    }
+    llm_analysis = analyze_resume(
+    resume_text,
+    jd_text,
+    analysis_data=llm_analysis_data,)
 
     return {
         "overall_score": overall,
@@ -248,5 +232,5 @@ def score_resume(resume_text, jd_text, skills_db, required_years):
         "matched_requirement_weight": skill_gap["matched_requirement_weight"],
         "missing_requirement_weight": skill_gap["missing_requirement_weight"],
         "weighted_match_percentage": skill_gap["weighted_match_percentage"],
-        "ai_feedback": ai_feedback,
+        "llm_analysis": llm_analysis,
     }
