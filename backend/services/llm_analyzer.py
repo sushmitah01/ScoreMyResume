@@ -1,3 +1,5 @@
+import re
+from backend.services.skill_taxonomy import SKILL_ALIAS_MAP
 from groq import Groq
 from backend.core.config import GROQ_API_KEY, GROQ_MODEL
 import json
@@ -166,6 +168,21 @@ Use the resume and job description only to explain the evidence.
                 "LLM response field 'strengths' items must contain "
                 "'skill' and 'explanation'"
             )
+    
+    if analysis_data:
+        supported_strengths = set(analysis_data.get("matched", []))
+        supported_strengths.update(analysis_data.get("weak_match", []))
+        for skill, evidence in analysis_data.get("semantic_evidence", {}).items():
+            if evidence.get("is_match") is True:
+                supported_strengths.add(skill)
+
+        for strength in result["strengths"]:
+            skill = strength["skill"]
+
+            if skill not in supported_strengths:
+                raise ValueError(
+                    f"LLM response contains unsupported skill in strengths: {skill}"
+                )
     allowed_severities = {"low", "medium", "high"}
 
     for gap in result["gaps"]:
@@ -185,10 +202,48 @@ Use the resume and job description only to explain the evidence.
                 "LLM response field 'gaps' severity must be "
                 "'low', 'medium', or 'high'"
             )
+        if analysis_data:
+            supported_gaps = set(analysis_data.get("missing", []))
+
+            if gap["skill"] not in supported_gaps:
+                raise ValueError(
+                    f"LLM response contains unsupported skill in gaps: "
+                    f"{gap['skill']}"
+                )
     for recommendation in result["recommendations"]:
         if not isinstance(recommendation, str):
             raise ValueError(
                 "LLM response field 'recommendations' must contain strings"
+            )
+        if not analysis_data:
+            continue 
+        known_skills = (
+            set(analysis_data.get("matched", []))
+            | set(analysis_data.get("weak_match", []))
+            | set(analysis_data.get("missing", []))
+            | set(analysis_data.get("required_missing", []))
+            | set(analysis_data.get("preferred_missing", []))
+        ) 
+        known_skill_names = {
+            skill.casefold() for skill in known_skills
+        } 
+        unsupported_skills = set()          
+        for skill in set(SKILL_ALIAS_MAP.values()):
+            if (
+                re.search(
+                    rf"\b{re.escape(skill)}\b",
+                    recommendation,
+                    re.IGNORECASE,                
+                )
+                and skill.casefold() not in known_skill_names
+            ):
+                unsupported_skills.add(skill)
+
+
+        if unsupported_skills:
+            raise ValueError(
+                "LLM response contains unsupported skill in recommendation: "
+                f"{sorted(unsupported_skills)[0]}"
             )
     return {
     "summary": result["summary"],

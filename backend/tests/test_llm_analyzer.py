@@ -1,3 +1,4 @@
+import pytest
 from backend.services.llm_analyzer import analyze_resume
 
 def test_analyze_resume():
@@ -322,3 +323,132 @@ def test_analyze_resume_rejects_invalid_gap_severity():
         return
 
     assert False, "Expected ValueError for invalid gap severity"
+
+def test_analyze_resume_rejects_hallucinated_strength():
+    class HallucinatingLLM:
+        def generate(self, prompt):
+            return {
+                "summary": "Strong backend candidate.",
+                "strengths": [
+                    {
+                        "skill": "Kubernetes",
+                        "explanation": "The candidate has strong Kubernetes experience.",
+                    }
+                ],
+                "gaps": [],
+                "recommendations": [],
+            }
+
+    analysis_data = {
+        "matched": ["Python", "FastAPI"],
+        "weak_match": [],
+        "missing": ["Kubernetes"],
+        "required_missing": ["Kubernetes"],
+        "preferred_missing": [],
+        "semantic_evidence": {},
+        "weighted_match_percentage": 66.7,
+        "score": 66.7,
+    }
+
+    with pytest.raises(ValueError, match="unsupported skill"):
+        analyze_resume(
+            "Python developer with FastAPI experience.",
+            "Required: Python, FastAPI, Kubernetes.",
+            analysis_data=analysis_data,
+            llm=HallucinatingLLM(),
+        )
+
+def test_analyze_resume_rejects_hallucinated_gap():
+    class HallucinatedGapLLM:
+        def generate(self, prompt):
+            return {
+                "summary": "Strong backend candidate.",
+                "strengths": [],
+                "gaps": [
+                    {
+                        "skill": "Docker",
+                        "severity": "high",
+                        "explanation": "Docker experience is missing.",
+                    }
+                ],
+                "recommendations": [],
+            }
+    analysis_data = {
+        "matched": ["Python", "FastAPI"],
+        "weak_match": [],
+        "missing": ["Kubernetes"],
+        "required_missing": ["Kubernetes"],
+        "preferred_missing": [],
+        "semantic_evidence": {},
+        "weighted_match_percentage": 66.7,
+        "score": 66.7,
+    }
+    with pytest.raises(ValueError, match="unsupported skill in gaps"):
+        analyze_resume(
+            "Python developer with FastAPI experience.",
+            "Required: Python, FastAPI, Kubernetes.",
+            analysis_data=analysis_data,
+            llm=HallucinatedGapLLM(),
+        )
+
+def test_analyze_resume_rejects_recommendation_about_unsupported_skill():
+    class HallucinatedRecommendationLLM:
+        def generate(self, prompt):
+            return {
+                "summary": "Strong backend candidate.",
+                "strengths": [],
+                "gaps": [],
+                "recommendations": [
+                    "Improve your Docker experience by deploying a containerized application."
+                ],
+            }
+
+    analysis_data = {
+        "matched": ["Python", "FastAPI"],
+        "weak_match": [],
+        "missing": ["Kubernetes"],
+        "required_missing": ["Kubernetes"],
+        "preferred_missing": [],
+        "semantic_evidence": {},
+        "weighted_match_percentage": 66.7,
+        "score": 66.7,
+    }
+
+    with pytest.raises(ValueError, match="unsupported skill in recommendation"):
+        analyze_resume(
+            "Python developer with FastAPI experience.",
+            "Required: Python, FastAPI, Kubernetes.",
+            analysis_data=analysis_data,
+            llm=HallucinatedRecommendationLLM(),
+        )
+
+def test_analyze_resume_rejects_recommendation_about_unsupported_skill():
+    class HallucinatedRecommendationLLM:
+        def generate(self, prompt):
+            return {
+                "summary": "Strong backend candidate.",
+                "strengths": [],
+                "gaps": [],
+                "recommendations": [
+                    "Improve your Docker experience by deploying a containerized application."
+                ],
+            }
+
+    analysis_data = {
+        "matched": ["Python", "FastAPI"],
+        "weak_match": [],
+        "missing": ["Kubernetes"],
+        "required_missing": ["Kubernetes"],
+        "preferred_missing": [],
+        "semantic_evidence": {},
+        "weighted_match_percentage": 66.7,
+        "score": 66.7,
+    }
+
+    with pytest.raises(ValueError, match="unsupported skill in recommendation"):
+        analyze_resume(
+            "Python developer with FastAPI experience.",
+            "Required: Python, FastAPI, Kubernetes.",
+            analysis_data=analysis_data,
+            llm=HallucinatedRecommendationLLM(),
+        )
