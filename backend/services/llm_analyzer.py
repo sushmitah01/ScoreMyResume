@@ -157,6 +157,10 @@ Use the resume and job description only to explain the evidence.
                 f"LLM response field '{field}' must be "
                 f"{expected_type.__name__}"
             )
+        if not result["summary"].strip():
+            raise ValueError(
+                "LLM response field 'summary' must not be empty"
+            )
     for strength in result["strengths"]:
         if not isinstance(strength, dict):
             raise ValueError(
@@ -168,7 +172,17 @@ Use the resume and job description only to explain the evidence.
                 "LLM response field 'strengths' items must contain "
                 "'skill' and 'explanation'"
             )
-    
+        if (
+            not isinstance(strength["skill"], str)
+            or not strength["skill"].strip()
+            or not isinstance(strength["explanation"], str)
+            or not strength["explanation"].strip()
+        ):
+            raise ValueError(
+                "LLM response field 'strengths' must contain "
+                "non-empty string values for 'skill' and 'explanation'"
+            )
+              
     if analysis_data:
         supported_strengths = set(analysis_data.get("matched", []))
         supported_strengths.update(analysis_data.get("weak_match", []))
@@ -202,6 +216,16 @@ Use the resume and job description only to explain the evidence.
                 "LLM response field 'gaps' severity must be "
                 "'low', 'medium', or 'high'"
             )
+        if (
+            not isinstance(gap["skill"], str)
+            or not gap["skill"].strip()
+            or not isinstance(gap["explanation"], str)
+            or not gap["explanation"].strip()
+        ):
+            raise ValueError(
+                "LLM response field 'gaps' must contain "
+                "non-empty string values for 'skill' and 'explanation'"
+            )
         if analysis_data:
             supported_gaps = set(analysis_data.get("missing", []))
 
@@ -214,6 +238,10 @@ Use the resume and job description only to explain the evidence.
         if not isinstance(recommendation, str):
             raise ValueError(
                 "LLM response field 'recommendations' must contain strings"
+            )
+        if not recommendation.strip():
+            raise ValueError(
+                "LLM response field 'recommendations' must not contain empty strings"
             )
         if not analysis_data:
             continue 
@@ -236,6 +264,11 @@ Use the resume and job description only to explain the evidence.
                     re.IGNORECASE,                
                 )
                 and skill.casefold() not in known_skill_names
+                and not re.search(
+                    rf"\b{re.escape(skill)}\b",
+                    resume,
+                    re.IGNORECASE,
+                )
             ):
                 unsupported_skills.add(skill)
 

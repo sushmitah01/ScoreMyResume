@@ -1,6 +1,7 @@
 import pytest
 from backend.services.llm_analyzer import analyze_resume
-
+from backend.services import llm_analyzer
+                                         
 def test_analyze_resume():
 
     result= analyze_resume(
@@ -294,6 +295,51 @@ def test_analyze_resume_rejects_malformed_strength():
         return
 
     assert False, "Expected ValueError for malformed strength"
+def test_analyze_resume_rejects_strength_with_invalid_field_types():
+    class InvalidStrengthLLM:
+        def generate(self, prompt):
+            return {
+                "summary": "Good candidate.",
+                "strengths": [
+                    {
+                        "skill": None,
+                        "explanation": "Demonstrates Python experience.",
+                    }
+                ],
+                "gaps": [],
+                "recommendations": [],
+            }
+
+    with pytest.raises(ValueError, match="strengths"):
+        analyze_resume(
+            "Python developer.",
+            "Required: Python.",
+            llm=InvalidStrengthLLM(),
+        )
+
+def test_analyze_resume_rejects_gap_with_invalid_field_types():
+    class InvalidGapLLM:
+        def generate(self, prompt):
+            return {
+                "summary": "Good candidate.",
+                "strengths": [],
+                "gaps": [
+                    {
+                        "skill": "Kubernetes",
+                        "severity": "high",
+                        "explanation": None,
+                    }
+                ],
+                "recommendations": [],
+            }
+
+    with pytest.raises(ValueError, match="gaps"):
+        analyze_resume(
+            "Python developer.",
+            "Required: Python and Kubernetes.",
+            llm=InvalidGapLLM(),
+        )
+
 
 class MalformedGapLLM:
     def generate(self, prompt):
@@ -390,65 +436,144 @@ def test_analyze_resume_rejects_hallucinated_gap():
             analysis_data=analysis_data,
             llm=HallucinatedGapLLM(),
         )
+    
 
-def test_analyze_resume_rejects_recommendation_about_unsupported_skill():
-    class HallucinatedRecommendationLLM:
+def test_analyze_resume_rejects_empty_recommendation():
+    class EmptyRecommendationLLM:
         def generate(self, prompt):
             return {
-                "summary": "Strong backend candidate.",
+                "summary": "Good candidate.",
+                "strengths": [],
+                "gaps": [],
+                "recommendations": ["   "],
+            }
+
+    with pytest.raises(ValueError, match="recommendations"):
+        analyze_resume(
+            "Python developer.",
+            "Required: Python.",
+            llm=EmptyRecommendationLLM(),
+        )
+
+def test_analyze_resume_rejects_empty_summary():
+    class EmptySummaryLLM:
+        def generate(self, prompt):
+            return {
+                "summary": "   ",
+                "strengths": [],
+                "gaps": [],
+                "recommendations": [],
+            }
+
+    with pytest.raises(ValueError, match="summary"):
+        analyze_resume(
+            "Python developer.",
+            "Required: Python.",
+            llm=EmptySummaryLLM(),
+        )
+
+def test_groq_llm_propagates_api_errors(monkeypatch):
+    from backend.services import llm_analyzer
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            raise RuntimeError("Simulated Groq API failure")
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeClient:
+        chat = FakeChat()
+
+    monkeypatch.setattr(llm_analyzer, "groq_client", FakeClient())
+
+    with pytest.raises(RuntimeError, match="Simulated Groq API failure"):
+        llm_analyzer.GroqLLM().generate("Test prompt")
+
+def test_groq_llm_rejects_invalid_json_response(monkeypatch):
+    class FakeMessage:
+        content = "This is not valid JSON"
+    class FakeChoice:
+        message = FakeMessage()
+    class FakeResponse:
+        choices = [FakeChoice()]
+    class FakeCompletions:
+        def create(self, **kwargs):
+            return FakeResponse()
+    class FakeChat:
+        completions = FakeCompletions()
+    class FakeClient:
+        chat = FakeChat()
+    monkeypatch.setattr(llm_analyzer, "groq_client", FakeClient())
+
+    with pytest.raises(ValueError):
+        llm_analyzer.GroqLLM().generate("Test prompt")
+
+
+def test_analyze_resume_allows_resume_skill_not_in_job_analysis():
+    class ResumeSkillLLM:
+        def generate(self, prompt):
+            return {
+                "summary": "The candidate has relevant backend experience.",
                 "strengths": [],
                 "gaps": [],
                 "recommendations": [
-                    "Improve your Docker experience by deploying a containerized application."
+                    "Highlight your existing AWS experience in the resume."
                 ],
             }
 
     analysis_data = {
-        "matched": ["Python", "FastAPI"],
+        "matched": ["Python", "Docker"],
         "weak_match": [],
-        "missing": ["Kubernetes"],
-        "required_missing": ["Kubernetes"],
+        "missing": [],
+        "required_missing": [],
         "preferred_missing": [],
         "semantic_evidence": {},
-        "weighted_match_percentage": 66.7,
-        "score": 66.7,
+        "weighted_match_percentage": 80.0,
+        "score": 80.0,
     }
 
-    with pytest.raises(ValueError, match="unsupported skill in recommendation"):
-        analyze_resume(
-            "Python developer with FastAPI experience.",
-            "Required: Python, FastAPI, Kubernetes.",
-            analysis_data=analysis_data,
-            llm=HallucinatedRecommendationLLM(),
-        )
+    result = analyze_resume(
+        "Python developer with experience using Docker and AWS.",
+        "Looking for a Python developer with experience in Docker.",
+        analysis_data=analysis_data,
+        llm=ResumeSkillLLM(),
+    )
 
-def test_analyze_resume_rejects_recommendation_about_unsupported_skill():
-    class HallucinatedRecommendationLLM:
+    assert result["recommendations"] == [
+        "Highlight your existing AWS experience in the resume."
+    ]
+
+
+def test_analyze_resume_rejects_unsupported_skill_in_recommendation():
+    class UnsupportedSkillLLM:
         def generate(self, prompt):
             return {
-                "summary": "Strong backend candidate.",
+                "summary": "Backend candidate.",
                 "strengths": [],
                 "gaps": [],
                 "recommendations": [
-                    "Improve your Docker experience by deploying a containerized application."
+                    "Learn Kubernetes to improve your profile."
                 ],
             }
 
     analysis_data = {
-        "matched": ["Python", "FastAPI"],
+        "matched": ["Python", "Docker"],
         "weak_match": [],
-        "missing": ["Kubernetes"],
-        "required_missing": ["Kubernetes"],
+        "missing": [],
+        "required_missing": [],
         "preferred_missing": [],
         "semantic_evidence": {},
-        "weighted_match_percentage": 66.7,
-        "score": 66.7,
+        "weighted_match_percentage": 80.0,
+        "score": 80.0,
     }
 
     with pytest.raises(ValueError, match="unsupported skill in recommendation"):
         analyze_resume(
-            "Python developer with FastAPI experience.",
-            "Required: Python, FastAPI, Kubernetes.",
+            "Python developer with Docker experience.",
+            "Looking for a Python developer with Docker experience.",
             analysis_data=analysis_data,
-            llm=HallucinatedRecommendationLLM(),
+            llm=UnsupportedSkillLLM(),
         )
+
+
