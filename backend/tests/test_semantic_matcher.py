@@ -169,4 +169,4 @@ def test_semantic_evidence_preserves_negative_context():
         requirement,
         resume_text,
     )
-    assert result["is_match"] is True
+    assert result["is_match"] is False

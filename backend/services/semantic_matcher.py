@@ -5,7 +5,7 @@ from sentence_transformers import SentenceTransformer
 from sentence_transformers.util import cos_sim
 from backend.core.config import SENTENCE_TRANSFORMER_MODEL
 from backend.services.skill_extractor import nlp
-
+from backend.services.skill_evidence import classify_skill_context
 sentence_model = SentenceTransformer(SENTENCE_TRANSFORMER_MODEL)
 SEMANTIC_EVIDENCE_THRESHOLD = 40.0
 
@@ -63,8 +63,13 @@ def find_semantic_evidence(requirement, resume_text):
         requirement,
         resume_text,
     )
+    context= classify_skill_context(result["sentence"])
+    is_match=(
+        result['score'] >=SEMANTIC_EVIDENCE_THRESHOLD
+        and context != "negative"
+    )
     return {
         "sentence": result["sentence"],
         "score": result["score"],
-        "is_match": result ["score"] >=SEMANTIC_EVIDENCE_THRESHOLD,
-    }
+        "is_match": is_match
+        }
