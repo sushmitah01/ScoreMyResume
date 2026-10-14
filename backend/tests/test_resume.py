@@ -61,3 +61,38 @@ def test_score_endpoint_rejects_unsupported_file_type(auth_headers, tmp_path):
             headers=auth_headers,
         )
     assert response.status_code == 400
+
+@pytest.mark.parametrize("job_description", ["   ", "\n\t"])
+def test_score_endpoint_rejects_blank_job_description(
+    sample_resume_pdf,
+    auth_headers,
+    job_description,
+):
+    with open(sample_resume_pdf, "rb") as f:
+        response = client.post(
+            "/resume/score",
+            files={"resume": ("resume.pdf", f, "application/pdf")},
+            data={"job_description": job_description},
+            headers=auth_headers,
+        )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Job description cannot be empty"
+
+def test_score_endpoint_rejects_oversized_resume(auth_headers, monkeypatch):
+    from backend.api import resume as resume_api
+    monkeypatch.setattr(resume_api, "MAX_FILE_SIZE_BYTES", 10)
+    response = client.post(
+        "/resume/score",
+        files={
+            "resume": (
+                "resume.pdf",
+                b"x" * 11,
+                "application/pdf",
+            )
+        },
+        data={"job_description": "Python developer"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 413
+    assert response.json()["detail"] == "Resume file exceeds the 5 MB size limit"

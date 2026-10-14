@@ -2,7 +2,7 @@ import tempfile
 import os
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from backend.core.security import get_current_user
-from backend.core.config import SUPPORTED_EXTENSIONS
+from backend.core.config import SUPPORTED_EXTENSIONS, MAX_FILE_SIZE_BYTES
 from backend.services.parser import parse_resume
 from backend.services.scorer import score_resume
 
@@ -27,12 +27,20 @@ def score_resume_endpoint(
 
     if file_extension not in SUPPORTED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {file_extension}")
-
+    if not job_description.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Job description cannot be empty",
+        )
+    contents = resume.file.read(MAX_FILE_SIZE_BYTES + 1)
+    if len(contents) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="Resume file exceeds the 5 MB size limit",
+        )
     with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as tmp_file:
-        contents = resume.file.read()
         tmp_file.write(contents)
         tmp_file_path = tmp_file.name
-
     try:
         resume_text = parse_resume(tmp_file_path)
         result = score_resume(resume_text, job_description, DEFAULT_SKILLS_DB, required_years)

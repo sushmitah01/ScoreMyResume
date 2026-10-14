@@ -9,7 +9,7 @@ from backend.services.scorer import( extract_keywords,
                                     extract_years_of_experience,
                                     score_resume,
                                     extract_skill_evidence,
-                                    )
+                                    calculate_overall_score)
 
 from backend.services.skill_taxonomy import (
                                     SKILL_TAXONOMY,
@@ -338,6 +338,18 @@ def test_score_resume_overall_score_is_weighted_average():
     result = score_resume(resume_text, jd_text, skills_db, required_years=0)
 
     assert 0.0 <= result["overall_score"] <= 100.0
+
+
+def test_calculate_overall_score_uses_configured_weights():
+    breakdown = {
+        "keywords": 100.0,
+        "semantic": 80.0,
+        "skills": 60.0,
+        "formatting": 40.0,
+        "experience": 20.0,
+    }
+
+    assert calculate_overall_score(breakdown) == 66.0
 
 
 def test_score_resume_breakdown_matches_score_weights_keys():
@@ -731,3 +743,10 @@ def test_score_resume_returns_structured_llm_analysis(monkeypatch):
     assert result["llm_analysis"]["strengths"][0]["skill"] == "Python"
     assert result["llm_analysis"]["gaps"][0]["severity"] == "high"
     assert len(result["llm_analysis"]["recommendations"]) == 1
+
+
+def test_keyword_match_score_ignores_duplicate_keywords():
+    resume_kw = ["python", "python", "docker", "docker"]
+    jd_kw = ["python", "python", "docker"]
+
+    assert keyword_match_score(resume_kw, jd_kw) == 100.0
