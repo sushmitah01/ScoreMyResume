@@ -144,3 +144,22 @@ def test_score_endpoint_handles_malformed_pdf(auth_headers):
     assert response.json()["detail"] == (
         "Unable to parse resume file. Please upload a valid PDF or DOCX file."
     )
+
+def test_score_endpoint_handles_malformed_docx(auth_headers):
+    response = client.post(
+        "/resume/score",
+        files={
+            "resume": (
+                "resume.docx",
+                b"this is not a valid DOCX file",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            )
+        },
+        data={"job_description": "Python developer"},
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Unable to parse resume file. Please upload a valid PDF or DOCX file."
+    )
