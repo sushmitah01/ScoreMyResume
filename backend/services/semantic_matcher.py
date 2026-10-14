@@ -66,7 +66,7 @@ def find_semantic_evidence(requirement, resume_text):
     context= classify_skill_context(result["sentence"])
     is_match=(
         result['score'] >=SEMANTIC_EVIDENCE_THRESHOLD
-        and context != "negative"
+        and context not in ("negative", "learning")
     )
     return {
         "sentence": result["sentence"],

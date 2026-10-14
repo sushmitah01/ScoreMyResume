@@ -170,3 +170,40 @@ def test_semantic_evidence_preserves_negative_context():
         resume_text,
     )
     assert result["is_match"] is False
+
+
+def test_learning_evidence_does_not_count_as_demonstrated_experience():
+    requirement = "Experience with Kubernetes."
+    resume_text = "I am currently learning Kubernetes."
+
+    result = find_semantic_evidence(
+        requirement,
+        resume_text,
+    )
+
+    assert result["is_match"] is False
+
+def test_empty_resume_returns_no_semantic_match():
+    result = find_semantic_evidence(
+        "Experience with Kubernetes.",
+        "",
+    )
+
+    assert result["sentence"] == ""
+    assert result["score"] == 0.0
+    assert result["is_match"] is False
+
+def test_positive_evidence_is_not_hidden_by_negative_evidence():
+    requirement = "Experience with Kubernetes."
+    resume_text = """
+    No experience with Kubernetes.
+    Deployed and managed Kubernetes clusters in production.
+    """
+
+    result = find_semantic_evidence(
+        requirement,
+        resume_text,
+    )
+
+    assert result["is_match"] is True
+    assert "Deployed and managed Kubernetes clusters in production." == result["sentence"]
