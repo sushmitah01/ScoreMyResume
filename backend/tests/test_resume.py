@@ -1,3 +1,4 @@
+import os
 import pytest
 import docx
 from fpdf import FPDF
@@ -96,3 +97,50 @@ def test_score_endpoint_rejects_oversized_resume(auth_headers, monkeypatch):
     )
     assert response.status_code == 413
     assert response.json()["detail"] == "Resume file exceeds the 5 MB size limit"
+
+def test_score_endpoint_removes_temp_file_when_parsing_fails(
+    auth_headers, monkeypatch
+):
+    from backend.api import resume as resume_api
+
+    captured = {}
+
+    def failing_parse_resume(file_path):
+        captured["path"] = file_path
+        raise RuntimeError("Parser failed")
+
+    monkeypatch.setattr(resume_api, "parse_resume", failing_parse_resume)
+
+    with pytest.raises(RuntimeError, match="Parser failed"):
+        client.post(
+            "/resume/score",
+            files={
+                "resume": (
+                    "resume.pdf",
+                    b"fake PDF content",
+                    "application/pdf",
+                )
+            },
+            data={"job_description": "Python developer"},
+            headers=auth_headers,
+        )
+    assert "path" in captured
+    assert not os.path.exists(captured["path"])
+
+def test_score_endpoint_handles_malformed_pdf(auth_headers):
+    response = client.post(
+        "/resume/score",
+        files={
+            "resume": (
+                "resume.pdf",
+                b"this is not a valid PDF file",
+                "application/pdf",
+            )
+        },
+        data={"job_description": "Python developer"},
+        headers=auth_headers,
+    )
+    assert response.status_code == 400
+    assert response.json()["detail"] == (
+        "Unable to parse resume file. Please upload a valid PDF or DOCX file."
+    )

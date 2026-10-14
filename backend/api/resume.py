@@ -1,11 +1,12 @@
 import tempfile
 import os
+import docx
 from fastapi import APIRouter, UploadFile, File, Form, Depends, HTTPException
 from backend.core.security import get_current_user
 from backend.core.config import SUPPORTED_EXTENSIONS, MAX_FILE_SIZE_BYTES
 from backend.services.parser import parse_resume
 from backend.services.scorer import score_resume
-
+from pdfplumber.utils.exceptions import PdfminerException
 router = APIRouter(prefix="/resume", tags=["resume"])
 
 DEFAULT_SKILLS_DB = [
@@ -42,9 +43,14 @@ def score_resume_endpoint(
         tmp_file.write(contents)
         tmp_file_path = tmp_file.name
     try:
-        resume_text = parse_resume(tmp_file_path)
+        try:
+            resume_text = parse_resume(tmp_file_path)
+        except (PdfminerException, ValueError, docx.opc.exceptions.PackageNotFoundError):
+            raise HTTPException(
+                status_code=400,
+                detail="Unable to parse resume file. Please upload a valid PDF or DOCX file.",
+            )
         result = score_resume(resume_text, job_description, DEFAULT_SKILLS_DB, required_years)
     finally:
         os.remove(tmp_file_path)
-
     return result
